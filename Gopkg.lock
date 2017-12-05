@@ -20,6 +20,18 @@
   version = "v1.2.4"
 
 [[projects]]
+  name = "github.com/mattn/go-runewidth"
+  packages = ["."]
+  revision = "9e777a8366cce605130a531d2cd6363d07ad7317"
+  version = "v0.0.2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/nsf/termbox-go"
+  packages = ["."]
+  revision = "aa4a75b1c20a2b03751b1a9f7e41d58bd6f71c43"
+
+[[projects]]
   branch = "master"
   name = "github.com/pkg/term"
   packages = ["termios"]
@@ -52,6 +64,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f17194ddb352c0be485eaa42cc9edaddbd024ff7a081f0ff03f26f50a66c881d"
+  inputs-digest = "6a137efe97e75d0d51028a61ffd493af5160a5ffef7100b8e80bb3ef71511be0"
   solver-name = "gps-cdcl"
   solver-version = 1
