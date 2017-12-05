@@ -1,5 +1,16 @@
 package ecs
 
+// RelationFlags specifies options for the A or B dimension in a Relation.
+type RelationFlags uint32
+
+const (
+	// RelationCascadeDestroy causes destruction of an entity relation to
+	// destroy related entities within the flagged dimension.
+	RelationCascadeDestroy RelationFlags = 1 << iota
+
+	// RelationRestrictDeletes TODO: cannot abort a destroy at present
+)
+
 const relType ComponentType = 1 << (63 - iota)
 
 // Relation contains entities that represent relations between entities in two
@@ -10,29 +21,34 @@ const relType ComponentType = 1 << (63 - iota)
 type Relation struct {
 	Core
 	aCore, bCore *Core
+	aFlag, bFlag RelationFlags
 	aids         []EntityID
 	bids         []EntityID
 }
 
 // NewRelation creates a new relation for the given Core systems.
 func NewRelation(
-	aCore *Core,
-	bCore *Core,
+	aCore *Core, aFlags RelationFlags,
+	bCore *Core, bFlags RelationFlags,
 ) *Relation {
 	rel := &Relation{}
-	rel.Init(aCore, bCore)
+	rel.Init(aCore, aFlags, bCore, bFlags)
 	return rel
 }
 
 // Init initializes the entity relation; useful for embedding.
 func (rel *Relation) Init(
-	aCore *Core,
-	bCore *Core,
+	aCore *Core, aFlags RelationFlags,
+	bCore *Core, bFlags RelationFlags,
 ) {
-	rel.aCore = aCore
-	rel.bCore = bCore
+	rel.aCore, rel.aFlag = aCore, aFlags
+	rel.bCore, rel.bFlag = bCore, bFlags
 	rel.RegisterAllocator(relType, rel.allocRel)
 	rel.RegisterDestroyer(relType, rel.destroyRel)
+	rel.aCore.RegisterDestroyer(NoType, rel.destroyFromA)
+	if rel.aCore != rel.bCore {
+		rel.bCore.RegisterDestroyer(NoType, rel.destroyFromB)
+	}
 }
 
 // A returns a reference to the A-side entity for the given relation entity.
@@ -59,10 +75,32 @@ func (rel *Relation) allocRel(id EntityID, t ComponentType) {
 func (rel *Relation) destroyRel(id EntityID, t ComponentType) {
 	i := int(id) - 1
 	if aid := rel.aids[i]; aid != 0 {
+		if rel.aFlag&RelationCascadeDestroy != 0 {
+			rel.aCore.setType(aid, NoType)
+		}
 		rel.aids[i] = 0
 	}
 	if bid := rel.bids[i]; bid != 0 {
+		if rel.bFlag&RelationCascadeDestroy != 0 {
+			rel.bCore.setType(bid, NoType)
+		}
 		rel.bids[i] = 0
+	}
+}
+
+func (rel *Relation) destroyFromA(aid EntityID, t ComponentType) {
+	for i, t := range rel.types {
+		if t.HasAll(relType) && rel.aids[i] == aid {
+			rel.setType(EntityID(i+1), NoType)
+		}
+	}
+}
+
+func (rel *Relation) destroyFromB(bid EntityID, t ComponentType) {
+	for i, t := range rel.types {
+		if t.HasAll(relType) && rel.bids[i] == bid {
+			rel.setType(EntityID(i+1), NoType)
+		}
 	}
 }
 
