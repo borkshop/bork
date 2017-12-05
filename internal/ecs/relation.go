@@ -128,6 +128,20 @@ func (rel *Relation) Cursor(
 	return &iterCursor{rel: rel, it: it, where: where}
 }
 
+// LookupA returns a Cursor that will iterate over relations involving one or
+// more given A entities.
+func (rel *Relation) LookupA(tcl TypeClause, ids ...EntityID) Cursor {
+	// TODO: indexing
+	return rel.scanLookup(tcl, false, ids)
+}
+
+// LookupB returns a Cursor that will iterate over relations involving one or
+// more given B entities.
+func (rel *Relation) LookupB(tcl TypeClause, ids ...EntityID) Cursor {
+	// TODO: indexing
+	return rel.scanLookup(tcl, true, ids)
+}
+
 // Insert relations under the given type clause. TODO: constraints, indices,
 // etc.
 func (rel *Relation) Insert(r RelationType, a, b Entity) Entity {

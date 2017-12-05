@@ -10,6 +10,57 @@ type Cursor interface {
 	B() Entity
 }
 
+func (rel *Relation) scanLookup(tcl TypeClause, co bool, qids []EntityID) Cursor {
+	// TODO: if qids is big enough, build a set first
+	if co {
+		return &coScanCursor{
+			qids: qids,
+			iterCursor: iterCursor{
+				rel: rel,
+				it:  rel.Iter(tcl),
+			},
+		}
+	}
+	return &scanCursor{
+		qids: qids,
+		iterCursor: iterCursor{
+			rel: rel,
+			it:  rel.Iter(tcl),
+		},
+	}
+}
+
+type scanCursor struct {
+	iterCursor
+	qids []EntityID
+}
+
+func (sc *scanCursor) Scan() bool {
+	for sc.iterCursor.Scan() {
+		id := sc.iterCursor.a.ID()
+		for _, qid := range sc.qids {
+			if qid == id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+type coScanCursor scanCursor
+
+func (csc *coScanCursor) Scan() bool {
+	for csc.iterCursor.Scan() {
+		id := csc.iterCursor.b.ID()
+		for _, qid := range csc.qids {
+			if qid == id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 type iterCursor struct {
 	rel *Relation
 
