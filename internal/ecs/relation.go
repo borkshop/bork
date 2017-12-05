@@ -162,3 +162,82 @@ func (rel *Relation) Delete(
 		rel.setType(cur.Entity().ID(), NoType)
 	}
 }
+
+// Upsert updates and/or inserts relations:
+//
+// The `each` function may call `emit` 0 or more times for each relation
+// entity; `emit` will return a, maybe newly inserted, entity for the given
+// `r`, `a`, `b` triple that its given.
+//
+// If emit isn't called for an entity, then it is destroyed. The first time
+// `emit` is called the entity is updated; thereafter a new entity is inserted.
+//
+// If no relations matched, then the each function is called exactly once with
+// NilEntity for r, a, and b.
+//
+// It returns the total number of `emit()`ed relations, and the total number of
+// matched relations.
+func (rel *Relation) Upsert(
+	tcl TypeClause,
+	where func(r RelationType, ent, a, b Entity) bool,
+	each func(
+		r RelationType, ent, a, b Entity,
+		emit func(r RelationType, a, b Entity) Entity,
+	),
+) (n, m int) {
+	for cur := rel.Cursor(tcl, where); cur.Scan(); {
+		ent, any := cur.Entity(), false
+		each(cur.R(), ent, cur.A(), cur.B(), func(er RelationType, ea, eb Entity) Entity {
+			if any {
+				if ea == NilEntity || eb == NilEntity {
+					return NilEntity
+				}
+				n++
+				return rel.insert(er, ea, eb)
+			}
+			any = true
+			if rel.doUpdate(ent, cur.R(), cur.A(), cur.B(), er, ea, eb) {
+				n++
+			}
+			return ent
+		})
+		if !any {
+			ent.Destroy()
+		}
+	}
+	if n == 0 {
+		each(0, NilEntity, NilEntity, NilEntity, func(er RelationType, ea, eb Entity) Entity {
+			if ea == NilEntity || eb == NilEntity {
+				return NilEntity
+			}
+			n++
+			return rel.insert(er, ea, eb)
+		})
+	}
+	return n, m
+}
+
+func (rel *Relation) doUpdate(
+	ent Entity,
+	or RelationType, oa, ob Entity,
+	nr RelationType, na, nb Entity,
+) bool {
+	if nr == NoRelType || na == NilEntity || nb == NilEntity {
+		ent.Destroy()
+		return false
+	}
+	if ent.Type() == NoType {
+		return false
+	}
+	if nr != or {
+		ent.SetType(ComponentType(nr) | relType)
+	}
+	i := ent.ID() - 1
+	if na != oa {
+		rel.aids[i] = na.ID()
+	}
+	if nb != ob {
+		rel.bids[i] = nb.ID()
+	}
+	return true
+}
