@@ -113,9 +113,9 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 		// cursor position inline with a scrolling log, by setting the cursor
 		// position relative to an arbitrary origin before rendering.
 		buf = append(buf, "\033["...)
-		buf = append(buf, strconv.Itoa(to.Y)...)
+		buf = append(buf, strconv.Itoa(to.Y+1)...)
 		buf = append(buf, ";"...)
-		buf = append(buf, strconv.Itoa(to.X)...)
+		buf = append(buf, strconv.Itoa(to.X+1)...)
 		buf = append(buf, "H"...)
 		c.Position = to
 		return buf, c
