@@ -44,21 +44,4 @@ func All(t ComponentType) TypeClause { return TypeClause{All: t} }
 // Any is a convenience constructor.
 func Any(t ComponentType) TypeClause { return TypeClause{Any: t} }
 
-// Filter a list of entities under a given type clause.
-func Filter(ents []Entity, tcl TypeClause) []Entity {
-	i, j := 0, 0
-	for ; j < len(ents); j++ {
-		if tcl.Test(ents[j].Type()) {
-			if j > i {
-				ents[i] = ents[j]
-			}
-			i++
-		}
-	}
-	for j = i; j < len(ents); j++ {
-		ents[j] = NilEntity
-	}
-	return ents[:i]
-}
-
 // TODO: boolean logic methods?
