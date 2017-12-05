@@ -18,7 +18,7 @@ type Iterator struct {
 func (it *Iterator) Next() bool {
 	for it.i++; it.i < len(it.co.types); it.i++ {
 		t := it.co.types[it.i]
-		if it.tcl.Test(t) {
+		if it.tcl.test(t) {
 			return true
 		}
 	}
