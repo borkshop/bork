@@ -20,6 +20,9 @@ type Relation struct {
 	aFlag, bFlag RelationFlags
 	aids         []EntityID
 	bids         []EntityID
+	fix          bool
+	aix          []int
+	bix          []int
 }
 
 // TODO: Where interface with WhereFunc convenience (would allow using indices more)
@@ -62,8 +65,15 @@ func (rel *Relation) B(ent Entity) Entity {
 }
 
 func (rel *Relation) allocRel(id EntityID, t ComponentType) {
+	i := len(rel.aids)
 	rel.aids = append(rel.aids, 0)
 	rel.bids = append(rel.bids, 0)
+	if rel.aix != nil {
+		rel.aix = append(rel.aix, i)
+	}
+	if rel.bix != nil {
+		rel.bix = append(rel.bix, i)
+	}
 }
 
 func (rel *Relation) destroyRel(id EntityID, t ComponentType) {
@@ -79,6 +89,14 @@ func (rel *Relation) destroyRel(id EntityID, t ComponentType) {
 			rel.bCore.setType(bid, NoType)
 		}
 		rel.bids[i] = 0
+	}
+	if !rel.fix {
+		if rel.aix != nil {
+			fix(len(rel.aix), i, rel.aixLess, rel.aixSwap)
+		}
+		if rel.bix != nil {
+			fix(len(rel.bix), i, rel.bixLess, rel.bixSwap)
+		}
 	}
 }
 
@@ -119,6 +137,11 @@ func (rel *Relation) Select(opts ...CursorOpt) Cursor {
 // If the cursor is nil, then each is called exactly once with an empty cursor
 // that it should use to create new relations.
 func (rel *Relation) Upsert(cur Cursor, each func(*UpsertCursor)) (n, m int) {
+	if fixIndex := rel.deferIndexing(); fixIndex != nil {
+		// TODO: a bit of over kill for single insertion
+		defer fixIndex()
+	}
+
 	if each == nil {
 		for cur.Scan() {
 			cur.R().Destroy()

@@ -82,6 +82,10 @@ func InB(ids ...EntityID) CursorOpt {
 	return lookupBOpt(ids)
 }
 
+// TODO use In{A,B}
+// return rel.indexLookup(tcl, ids, rel.aids, rel.aix)
+// return rel.indexLookup(tcl, ids, rel.bids, rel.bix)
+
 type lookupAOpt []EntityID
 type lookupBOpt []EntityID
 
