@@ -81,7 +81,7 @@ func TestBasics(t *testing.T) {
 
 func TestIter_empty(t *testing.T) {
 	s := newStuff()
-	it := s.Iter(ecs.AllClause)
+	it := s.Iter(ecs.TrueClause)
 	assert.Equal(t, 0, it.Count())
 
 	assert.False(t, it.Next())
@@ -96,7 +96,7 @@ func TestIter_one(t *testing.T) {
 	s1 := s.AddEntity(scData)
 	s.d1[s1.ID()] = 3
 
-	it := s.Iter(ecs.AllClause)
+	it := s.Iter(ecs.TrueClause)
 	assert.Equal(t, 1, it.Count())
 
 	assert.True(t, it.Next())
@@ -119,7 +119,7 @@ func TestIter_two(t *testing.T) {
 	s.d1[e2.ID()] = 4
 	s.d2[e2.ID()] = append(s.d2[e2.ID()], 2, 2, 3, 5, 8)
 
-	it := s.Iter(ecs.AllClause)
+	it := s.Iter(ecs.TrueClause)
 	assert.Equal(t, 2, it.Count())
 
 	// iterate all 3
@@ -139,7 +139,7 @@ func TestIter_two(t *testing.T) {
 	assert.Equal(t, ecs.NoType, it.Type())
 
 	// filtering
-	it = s.Iter(ecs.All(scD2))
+	it = s.Iter(scD2.MatchAll())
 	assert.Equal(t, 1, it.Count())
 
 	assert.True(t, it.Next())
