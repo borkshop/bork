@@ -78,3 +78,14 @@ func (t RelationType) All(mask RelationType) bool { return t&mask == mask }
 
 // Any returns true only if at least one of the masked type bits is set.
 func (t RelationType) Any(mask RelationType) bool { return t&mask != 0 }
+
+// Cursor returns a cursor that will scan over relations with given type and
+// that meet the optional where clause.
+func (rel *Relation) Cursor(
+	tcl TypeClause,
+	where func(r RelationType, ent, a, b Entity) bool,
+) Cursor {
+	tcl = And(tcl, relType.All())
+	it := rel.Iter(tcl)
+	return &iterCursor{rel: rel, it: it, where: where}
+}
