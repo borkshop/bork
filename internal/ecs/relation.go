@@ -22,6 +22,10 @@ type Relation struct {
 	bids         []EntityID
 }
 
+// TODO: Where interface with WhereFunc convenience (would allow using indices more)
+// TODO: secondary indices, uniqueness, keys, etc
+// TODO: joins
+
 // NewRelation creates a new relation for the given Core systems.
 func NewRelation(
 	aCore *Core, aFlags RelationFlags,
