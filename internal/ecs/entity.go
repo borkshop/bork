@@ -128,34 +128,33 @@ func (co *Core) allocate() EntityID {
 }
 
 func (co *Core) setType(id EntityID, new ComponentType) {
-	old := co.types[id-1]
+	i := id - 1
+	old := co.types[i]
 	if old == new {
 		return
 	}
-	var (
-		diff      = old ^ new
-		created   = new & diff
-		destroyed = old & diff
-	)
-	co.types[id-1] = new
+	co.types[i] = new
 	if old == NoType {
 		for _, ef := range co.creators {
 			if ef.t == NoType {
 				ef.f(id, new)
+				new = co.types[i]
 			}
 		}
 	}
-	if created != 0 {
+	if new & ^old != 0 {
 		for _, ef := range co.creators {
 			if new.HasAll(ef.t) && !old.HasAll(ef.t) {
 				ef.f(id, new)
+				new = co.types[i]
 			}
 		}
 	}
-	if destroyed != 0 {
+	if old & ^new != 0 {
 		for _, ef := range co.destroyers {
 			if old.HasAll(ef.t) && !new.HasAll(ef.t) {
 				ef.f(id, new)
+				new = co.types[i]
 			}
 		}
 	}
@@ -163,6 +162,7 @@ func (co *Core) setType(id EntityID, new ComponentType) {
 		for _, ef := range co.destroyers {
 			if ef.t == NoType {
 				ef.f(id, new)
+				new = co.types[i]
 			}
 		}
 		co.free++
