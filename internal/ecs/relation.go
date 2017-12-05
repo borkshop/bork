@@ -89,3 +89,26 @@ func (rel *Relation) Cursor(
 	it := rel.Iter(tcl)
 	return &iterCursor{rel: rel, it: it, where: where}
 }
+
+// Insert relations under the given type clause. TODO: constraints, indices,
+// etc.
+func (rel *Relation) Insert(r RelationType, a, b Entity) Entity {
+	return rel.insert(r, a, b)
+}
+
+// InsertMany allows a function to insert many relations without incurring
+// indexing cost; indexing is deferred until the with function returns, at
+// which point indices are fixed.
+func (rel *Relation) InsertMany(with func(func(r RelationType, a, b Entity) Entity)) {
+	with(rel.insert)
+}
+
+func (rel *Relation) insert(r RelationType, a, b Entity) Entity {
+	aid := rel.aCore.Deref(a)
+	bid := rel.bCore.Deref(b)
+	ent := rel.AddEntity(ComponentType(r) | relType)
+	i := int(ent.ID()) - 1
+	rel.aids[i] = aid
+	rel.bids[i] = bid
+	return ent
+}
