@@ -112,7 +112,7 @@ func (shop *shop) loadPersonInfo(args ...interface{}) {
 	}
 }
 
-func ExampleECS_Employees() {
+func Example_employees() {
 	var shop shop
 	shop.init()
 
