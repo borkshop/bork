@@ -18,7 +18,15 @@ func Outset(r image.Rectangle, x, y int) image.Rectangle {
 	return image.Rectangle{
 		r.Min.Sub(image.Pt(x, y)),
 		r.Max.Add(image.Pt(x, y)),
-	}
+	}.Intersect(r)
+}
+
+// Inset shrinks
+func Inset(r image.Rectangle, x, y int) image.Rectangle {
+	return image.Rectangle{
+		r.Min.Add(image.Pt(x, y)),
+		r.Max.Sub(image.Pt(x, y)),
+	}.Intersect(r)
 }
 
 // Capture returns the rectangle expanded to enclose a point.
