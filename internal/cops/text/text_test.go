@@ -34,9 +34,9 @@ func TestOffset(t *testing.T) {
 	str := "abc"
 	bounds := Bounds(str).Add(image.Pt(2, 1))
 	outset := rectangle.Outset(bounds, 2, 1)
-	front := display.New(outset)
-	back := display.New(outset)
-	front.Fill(front.Bounds(), ".", display.Colors[7], display.Colors[0])
+	front, back := display.New2(outset)
+	front.Fill(outset, ".", display.Colors[7], display.Colors[0])
+	assert.Equal(t, ".", front.Text.At(0, 0))
 	Write(front, bounds, str, display.Colors[7])
 	var buf []byte
 	cur := display.Reset
