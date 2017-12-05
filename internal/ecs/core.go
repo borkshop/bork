@@ -27,7 +27,7 @@ type ComponentType uint64
 // handed out by AddEntity.
 const NoType ComponentType = 0
 
-func (t ComponentType) String() string { return fmt.Sprintf("<%016x>", uint64(t)) }
+func (t ComponentType) String() string { return fmt.Sprintf("%016x", uint64(t)) }
 
 // All returns true only if all of the masked type bits are set. If the mask is
 // NoType, always returns false.

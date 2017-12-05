@@ -18,7 +18,7 @@ func (ent Entity) String() string {
 	if ent.co == nil {
 		return fmt.Sprintf("%p<>[%v]", ent.co, ent.id)
 	}
-	return fmt.Sprintf("%p%v[%v]",
+	return fmt.Sprintf("%p<%v>[%v]",
 		ent.co,
 		ent.co.types[ent.id-1],
 		ent.id,
