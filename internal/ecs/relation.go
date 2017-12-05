@@ -112,3 +112,15 @@ func (rel *Relation) insert(r RelationType, a, b Entity) Entity {
 	rel.bids[i] = bid
 	return ent
 }
+
+// Delete all relations matching the given type clause and optional where
+// function; this is like Update with a set function that zeros the relation,
+// but marginally faster / simpler.
+func (rel *Relation) Delete(
+	tcl TypeClause,
+	where func(r RelationType, ent, a, b Entity) bool,
+) {
+	for cur := rel.Cursor(tcl, where); cur.Scan(); {
+		rel.setType(cur.Entity().ID(), NoType)
+	}
+}
