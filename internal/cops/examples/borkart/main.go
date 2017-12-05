@@ -7,7 +7,7 @@ import (
 
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/rectangle"
-	"github.com/kriskowal/cops/terminal"
+	"github.com/borkshop/bork/internal/cops/terminal"
 )
 
 func main() {

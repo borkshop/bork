@@ -7,7 +7,7 @@ Cops supports 24 bit color and pairs well with Go's `color`, `image`, and
 
 Cops models a terminal Display as an image with three layers:
 
-- `Text *"github.com/kriskowal/cops/textile".Textile`
+- `Text *"github.com/borkshop/bork/internal/cops/textile".Textile`
 - `Foreground *"image".RGBA`
 - `Background *"image".RGBA`
 
