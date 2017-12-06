@@ -21,30 +21,29 @@ var (
 	FalseClause TypeClause = constClause(false)
 )
 
-// MatchAll return a clause that matches only if all of the type bits are set.
-// If the type is NoType, the clause never matches (always returns false).
-func (t ComponentType) MatchAll() TypeClause {
+// All return a clause that matches only if all of the type bits are set.  If
+// the type is NoType, the clause never matches (always returns false).
+func (t ComponentType) All() TypeClause {
 	if t == NoType {
 		return FalseClause
 	}
 	return allClause(t)
 }
 
-// MatchAny return a clause that matches only if at least one of the type bits
-// is set. If the type is NoType, the clause always matches (always returns
-// true).
-func (t ComponentType) MatchAny() TypeClause {
+// Any return a clause that matches only if at least one of the type bits is
+// set. If the type is NoType, the clause always matches (always returns true).
+func (t ComponentType) Any() TypeClause {
 	if t == NoType {
 		return TrueClause
 	}
 	return anyClause(t)
 }
 
-// MatchNotAll return a clause that matches only if at least one of the type bits is not set.
-func (t ComponentType) MatchNotAll() TypeClause { return notAllClause(t) }
+// NotAll return a clause that matches only if at least one of the type bits is not set.
+func (t ComponentType) NotAll() TypeClause { return notAllClause(t) }
 
-// MatchNotAny return a clause that matches only if none of the type bits are not set.
-func (t ComponentType) MatchNotAny() TypeClause { return notAnyClause(t) }
+// NotAny return a clause that matches only if none of the type bits are not set.
+func (t ComponentType) NotAny() TypeClause { return notAnyClause(t) }
 
 type constClause bool
 type allClause ComponentType
