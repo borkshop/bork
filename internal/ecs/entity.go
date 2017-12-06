@@ -128,8 +128,11 @@ func (co *Core) allocate() EntityID {
 }
 
 func (co *Core) setType(id EntityID, new ComponentType) {
+	old := co.types[id-1]
+	if old == new {
+		return
+	}
 	var (
-		old       = co.types[id-1]
 		diff      = old ^ new
 		created   = new & diff
 		destroyed = old & diff
