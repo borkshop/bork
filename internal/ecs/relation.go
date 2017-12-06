@@ -114,50 +114,14 @@ func (rel *Relation) LookupB(tcl TypeClause, ids ...EntityID) Cursor {
 	return rel.scanLookup(tcl, true, ids)
 }
 
-// Insert relations under the given type clause. TODO: constraints, indices,
-// etc.
-func (rel *Relation) Insert(r ComponentType, a, b Entity) Entity {
-	return rel.insert(r, a, b)
-}
-
-// InsertMany allows a function to insert many relations without incurring
-// indexing cost; indexing is deferred until the with function returns, at
-// which point indices are fixed.
-func (rel *Relation) InsertMany(with func(func(r ComponentType, a, b Entity) Entity)) {
-	with(rel.insert)
-}
-
-func (rel *Relation) insert(r ComponentType, a, b Entity) Entity {
-	aid := rel.aCore.Deref(a)
-	bid := rel.bCore.Deref(b)
-	ent := rel.AddEntity(ComponentType(r))
-	i := int(ent.ID()) - 1
-	rel.aids[i] = aid
-	rel.bids[i] = bid
-	return ent
-}
-
 // Upsert updates any relations that the given cursor iterates, and may insert
 // new ones.
 //
-// If the `each` function is nil, all matched relations are destroyed.
+// If the each function is nil, all matched relations are destroyed.
 //
-// The `each` function may call `emit` 0 or more times for each relation
-// entity; `emit` will return a, maybe newly inserted, entity for the given
-// `r`, `a`, `b` triple that it's given.
-//
-// If emit isn't called for an entity, then it is destroyed. The first time
-// `emit` is called the entity is updated; thereafter a new entity is inserted.
-//
-// If no relations matched, then the each function is called exactly once with
-// a nil Cursor.
-//
-// It returns the total number of `emit()`ed relations, and the total number of
-// matched relations.
-func (rel *Relation) Upsert(
-	cur Cursor,
-	each func(cur Cursor, emit func(r ComponentType, a, b Entity) Entity),
-) (n, m int) {
+// If the cursor is nil, then each is called exactly once with an empty cursor
+// that it should use to create new relations.
+func (rel *Relation) Upsert(cur Cursor, each func(*UpsertCursor)) (n, m int) {
 	if each == nil {
 		for cur.Scan() {
 			rel.setType(cur.R().ID(), NoType)
@@ -166,56 +130,85 @@ func (rel *Relation) Upsert(
 		return n, m
 	}
 
-	for cur.Scan() {
-		any := false
-		each(cur, func(er ComponentType, ea, eb Entity) Entity {
-			if any {
-				if ea == NilEntity || eb == NilEntity {
-					return NilEntity
-				}
-				n++
-				return rel.insert(er, ea, eb)
-			}
-			any = true
-			if rel.doUpdate(cur, er, ea, eb) {
-				n++
-			}
-			return cur.R()
-		})
-		if !any {
-			cur.R().Destroy()
-		}
+	uc := UpsertCursor{rel: rel, Cursor: cur}
+	if cur == nil {
+		each(&uc)
+		return uc.n, 0
 	}
-	if n == 0 {
-		each(nil, func(er ComponentType, ea, eb Entity) Entity {
-			if ea == NilEntity || eb == NilEntity {
-				return NilEntity
-			}
-			n++
-			return rel.insert(er, ea, eb)
-		})
+	for uc.Scan() {
+		each(&uc)
 	}
-	return n, m
+	if uc.n == 0 {
+		each(&uc)
+	}
+	return uc.n, m
 }
 
-func (rel *Relation) doUpdate(cur Cursor, nr ComponentType, na, nb Entity) bool {
-	if nr == NoType || na == NilEntity || nb == NilEntity {
-		cur.R().Destroy()
-		return false
+// UpsertCursor allows inserting, updating, and deleting relations.
+type UpsertCursor struct {
+	Cursor
+	rel  *Relation
+	last Entity
+	any  bool
+	n    int
+}
+
+// Scan advances the underlying cursor; but first, it destroys the last scanned
+// relation if no updated record was emitted.
+func (uc *UpsertCursor) Scan() bool {
+	if uc.last != NilEntity && uc.any {
+		uc.last.Destroy()
 	}
-	if cur.R().Type() == NoType {
-		return false
+	uc.any = false
+	if uc.Cursor.Scan() {
+		uc.last = uc.R()
+		return true
 	}
-	ent := cur.R()
-	if nr != ent.Type() {
-		ent.SetType(ComponentType(nr))
+	uc.last = NilEntity
+	return false
+}
+
+// Emit a record, replacing the current, or inserting a new one if the current
+// record has already been updated.
+func (uc *UpsertCursor) Emit(er ComponentType, ea, eb Entity) Entity {
+	if uc.any {
+		return uc.Create(er, ea, eb)
 	}
-	i := ent.ID() - 1
-	if na != cur.A() {
-		rel.aids[i] = na.ID()
+	uc.any = true
+	rel := uc.R()
+	if rel == NilEntity {
+		return NilEntity
 	}
-	if nb != cur.B() {
-		rel.bids[i] = nb.ID()
+	if er == NoType || ea == NilEntity || eb == NilEntity {
+		rel.Destroy()
+		return NilEntity
 	}
-	return true
+	if er != rel.Type() {
+		rel.SetType(ComponentType(er))
+	}
+	i := rel.ID() - 1
+	if ea != uc.A() {
+		uc.rel.aids[i] = ea.ID()
+	}
+	if eb != uc.B() {
+		uc.rel.bids[i] = eb.ID()
+	}
+	uc.n++
+	return rel
+}
+
+// Create a new relation, ignoring the current; when bulk loading data (no
+// underlying Cursor), this is the prefered method.
+func (uc *UpsertCursor) Create(r ComponentType, a, b Entity) Entity {
+	if a == NilEntity || b == NilEntity {
+		return NilEntity
+	}
+	aid := uc.rel.aCore.Deref(a)
+	bid := uc.rel.bCore.Deref(b)
+	rel := uc.rel.AddEntity(ComponentType(r))
+	i := int(rel.ID()) - 1
+	uc.rel.aids[i] = aid
+	uc.rel.bids[i] = bid
+	uc.n++
+	return rel
 }

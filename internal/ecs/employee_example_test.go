@@ -220,7 +220,7 @@ func (amt *assignment) assign() {
 	})
 
 	// match each job with best worker
-	amt.InsertMany(func(insert func(r ecs.ComponentType, a ecs.Entity, b ecs.Entity) ecs.Entity) {
+	amt.Upsert(nil, func(uc *ecs.UpsertCursor) {
 		for it := amt.jb.unassigned(); len(wids) > 0 && it.Next(); {
 			// pick best worker and remove it from the list
 			jk := amt.jb.skills[it.ID()].key()
@@ -236,7 +236,7 @@ func (amt *assignment) assign() {
 
 			// assign worker to job
 			worker, job := amt.wrk.Ref(wid), it.Entity()
-			insert(amtWorking, worker, job)
+			uc.Create(amtWorking, worker, job)
 			worker.Add(workerAssigned)
 			job.Add(jobAssigned)
 		}
