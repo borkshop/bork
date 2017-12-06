@@ -5,7 +5,7 @@ type Cursor interface {
 	Scan() bool
 	Count() int
 	Entity() Entity
-	R() RelationType
+	R() ComponentType
 	A() Entity
 	B() Entity
 }
@@ -65,11 +65,11 @@ type iterCursor struct {
 	rel *Relation
 
 	it    Iterator
-	where func(r RelationType, ent, a, b Entity) bool
+	where func(r ComponentType, ent, a, b Entity) bool
 
 	ent Entity
 	a   Entity
-	r   RelationType
+	r   ComponentType
 	b   Entity
 }
 
@@ -83,7 +83,7 @@ func (cur iterCursor) Count() int {
 	for it.Next() {
 		ent := it.Entity()
 		i := ent.ID() - 1
-		r := RelationType(cur.rel.types[i] & ^relType)
+		r := cur.rel.types[i]
 		a := cur.rel.aCore.Ref(cur.rel.aids[i])
 		b := cur.rel.aCore.Ref(cur.rel.bids[i])
 		if cur.where(r, ent, a, b) {
@@ -97,7 +97,7 @@ func (cur *iterCursor) Scan() bool {
 	for cur.it.Next() {
 		cur.ent = cur.it.Entity()
 		i := cur.ent.ID() - 1
-		cur.r = RelationType(cur.rel.types[i] & ^relType)
+		cur.r = cur.rel.types[i]
 		cur.a = cur.rel.aCore.Ref(cur.rel.aids[i])
 		cur.b = cur.rel.aCore.Ref(cur.rel.bids[i])
 		if cur.where == nil || cur.where(cur.r, cur.ent, cur.a, cur.b) {
@@ -111,7 +111,7 @@ func (cur *iterCursor) Scan() bool {
 	return false
 }
 
-func (cur iterCursor) Entity() Entity  { return cur.ent }
-func (cur iterCursor) R() RelationType { return cur.r }
-func (cur iterCursor) A() Entity       { return cur.a }
-func (cur iterCursor) B() Entity       { return cur.b }
+func (cur iterCursor) Entity() Entity   { return cur.ent }
+func (cur iterCursor) R() ComponentType { return cur.r }
+func (cur iterCursor) A() Entity        { return cur.a }
+func (cur iterCursor) B() Entity        { return cur.b }
