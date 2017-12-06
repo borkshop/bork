@@ -137,15 +137,10 @@ func (rel *Relation) insert(r ComponentType, a, b Entity) Entity {
 	return ent
 }
 
-// Delete all relations that the given cursor scans.
-func (rel *Relation) Delete(cur Cursor) {
-	for cur.Scan() {
-		rel.setType(cur.R().ID(), NoType)
-	}
-}
-
 // Upsert updates any relations that the given cursor iterates, and may insert
 // new ones.
+//
+// If the `each` function is nil, all matched relations are destroyed.
 //
 // The `each` function may call `emit` 0 or more times for each relation
 // entity; `emit` will return a, maybe newly inserted, entity for the given
@@ -163,6 +158,14 @@ func (rel *Relation) Upsert(
 	cur Cursor,
 	each func(cur Cursor, emit func(r ComponentType, a, b Entity) Entity),
 ) (n, m int) {
+	if each == nil {
+		for cur.Scan() {
+			rel.setType(cur.R().ID(), NoType)
+			m++
+		}
+		return n, m
+	}
+
 	for cur.Scan() {
 		any := false
 		each(cur, func(er ComponentType, ea, eb Entity) Entity {
