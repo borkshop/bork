@@ -281,7 +281,7 @@ func Example_employees() {
 	amt.assign()
 
 	fmt.Printf("assignments:\n")
-	for cur := amt.Cursor(amtWorking.All(), nil); cur.Scan(); {
+	for cur := amt.Cursor(amtWorking.All()); cur.Scan(); {
 		worker, job := cur.A(), cur.B()
 		ws := wrk.skills[worker.ID()]
 		js := jb.skills[job.ID()]

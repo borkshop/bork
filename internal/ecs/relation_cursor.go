@@ -4,8 +4,7 @@ package ecs
 type Cursor interface {
 	Scan() bool
 	Count() int
-	Entity() Entity
-	R() ComponentType
+	R() Entity
 	A() Entity
 	B() Entity
 }
@@ -63,55 +62,30 @@ func (csc *coScanCursor) Scan() bool {
 
 type iterCursor struct {
 	rel *Relation
-
-	it    Iterator
-	where func(r ComponentType, ent, a, b Entity) bool
-
-	ent Entity
+	it  Iterator
+	r   Entity
 	a   Entity
-	r   ComponentType
 	b   Entity
 }
 
 func (cur iterCursor) Count() int {
-	if cur.where == nil {
-		return cur.it.Count()
-	}
-
-	n := 0
-	it := cur.it
-	for it.Next() {
-		ent := it.Entity()
-		i := ent.ID() - 1
-		r := cur.rel.types[i]
-		a := cur.rel.aCore.Ref(cur.rel.aids[i])
-		b := cur.rel.aCore.Ref(cur.rel.bids[i])
-		if cur.where(r, ent, a, b) {
-			n++
-		}
-	}
-	return n
+	return cur.it.Count()
 }
 
 func (cur *iterCursor) Scan() bool {
-	for cur.it.Next() {
-		cur.ent = cur.it.Entity()
-		i := cur.ent.ID() - 1
-		cur.r = cur.rel.types[i]
+	if cur.it.Next() {
+		i := cur.it.ID() - 1
+		cur.r = cur.it.Entity()
 		cur.a = cur.rel.aCore.Ref(cur.rel.aids[i])
 		cur.b = cur.rel.aCore.Ref(cur.rel.bids[i])
-		if cur.where == nil || cur.where(cur.r, cur.ent, cur.a, cur.b) {
-			return true
-		}
+		return true
 	}
-	cur.ent = NilEntity
-	cur.r = 0
+	cur.r = NilEntity
 	cur.a = NilEntity
 	cur.b = NilEntity
 	return false
 }
 
-func (cur iterCursor) Entity() Entity   { return cur.ent }
-func (cur iterCursor) R() ComponentType { return cur.r }
-func (cur iterCursor) A() Entity        { return cur.a }
-func (cur iterCursor) B() Entity        { return cur.b }
+func (cur iterCursor) R() Entity { return cur.r }
+func (cur iterCursor) A() Entity { return cur.a }
+func (cur iterCursor) B() Entity { return cur.b }
