@@ -29,13 +29,13 @@ const NoType ComponentType = 0
 
 func (t ComponentType) String() string { return fmt.Sprintf("%016x", uint64(t)) }
 
-// All returns true only if all of the masked type bits are set. If the mask is
-// NoType, always returns false.
-func (t ComponentType) All(mask ComponentType) bool { return mask != NoType && t&mask == mask }
+// HasAll returns true only if all of the masked type bits are set. If the mask
+// is NoType, always returns false.
+func (t ComponentType) HasAll(mask ComponentType) bool { return mask != NoType && t&mask == mask }
 
-// Any returns true only if at least one of the masked type bits is set. If the
+// HasAny returns true only if at least one of the masked type bits is set. If the
 // mask is NoType, always returns true.
-func (t ComponentType) Any(mask ComponentType) bool { return mask == NoType || t&mask != 0 }
+func (t ComponentType) HasAny(mask ComponentType) bool { return mask == NoType || t&mask != 0 }
 
 // ApplyTo sets the given entity's type to t; simply a dual of Entity.SetType.
 func (t ComponentType) ApplyTo(ent Entity) { ent.SetType(t) }
@@ -84,7 +84,7 @@ func (co *Core) Clear() {
 // corresponding element(s).
 func (co *Core) RegisterAllocator(t ComponentType, allocator func(EntityID, ComponentType)) {
 	for _, ef := range co.allocators {
-		if ef.t.Any(t) {
+		if ef.t.HasAny(t) {
 			panic("aspect type conflict")
 		}
 	}
