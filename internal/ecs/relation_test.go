@@ -31,21 +31,21 @@ func setupRelTest(aFlags, bFlags ecs.RelationFlags) (a, b *stuff, rel *ecs.Relat
 
 	rel = ecs.NewRelation(&a.Core, aFlags, &b.Core, bFlags)
 
-	rel.InsertMany(func(insert func(r ecs.RelationType, a ecs.Entity, b ecs.Entity) ecs.Entity) {
+	rel.InsertMany(func(insert func(r ecs.ComponentType, a ecs.Entity, b ecs.Entity) ecs.Entity) {
 
-		insert(0, a1, b2)
-		insert(0, a1, b3)
-		insert(0, a2, b4)
-		insert(0, a2, b5)
-		insert(0, a3, b6)
-		insert(0, a3, b7)
+		insert(1, a1, b2)
+		insert(1, a1, b3)
+		insert(1, a2, b4)
+		insert(1, a2, b5)
+		insert(1, a3, b6)
+		insert(1, a3, b7)
 
-		insert(0, a2, b1)
-		insert(0, a3, b1)
-		insert(0, a4, b2)
-		insert(0, a5, b2)
-		insert(0, a6, b3)
-		insert(0, a7, b3)
+		insert(1, a2, b1)
+		insert(1, a3, b1)
+		insert(1, a4, b2)
+		insert(1, a5, b2)
+		insert(1, a6, b3)
+		insert(1, a7, b3)
 
 	})
 
