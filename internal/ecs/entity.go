@@ -144,14 +144,14 @@ func (co *Core) setType(id EntityID, new ComponentType) {
 	}
 	if created != 0 {
 		for _, ef := range co.creators {
-			if new.All(ef.t) && !old.All(ef.t) {
+			if new.HasAll(ef.t) && !old.HasAll(ef.t) {
 				ef.f(id, new)
 			}
 		}
 	}
 	if destroyed != 0 {
 		for _, ef := range co.destroyers {
-			if old.All(ef.t) && !new.All(ef.t) {
+			if old.HasAll(ef.t) && !new.HasAll(ef.t) {
 				ef.f(id, new)
 			}
 		}
