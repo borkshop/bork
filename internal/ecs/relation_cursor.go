@@ -89,3 +89,83 @@ func (cur *iterCursor) Scan() bool {
 func (cur iterCursor) R() Entity { return cur.r }
 func (cur iterCursor) A() Entity { return cur.a }
 func (cur iterCursor) B() Entity { return cur.b }
+
+// FilterCursor returns a cursor filtered by the given
+// predicate function; its Count() method may ignore the
+// filter, drastically over-counting.
+func FilterCursor(cur Cursor, f func(Cursor) bool) Cursor {
+	switch impl := cur.(type) {
+	case (*iterCursor):
+		return iterFilterCursor{iterCursor: *impl}.with(f)
+
+	case (*iterFilterCursor):
+		return impl.with(f)
+
+	case (filterCursor):
+		return impl.with(f)
+
+	default:
+		return filterCursor{Cursor: cur}.with(f)
+	}
+}
+
+type iterFilterCursor struct {
+	iterCursor
+	fs []func(Cursor) bool
+}
+
+type filterCursor struct {
+	Cursor
+	fs []func(Cursor) bool
+}
+
+func (ifc iterFilterCursor) with(f func(Cursor) bool) Cursor {
+	ifc.fs = append(ifc.fs[:len(ifc.fs):len(ifc.fs)], f)
+	return &ifc
+}
+
+func (fc filterCursor) with(f func(Cursor) bool) Cursor {
+	fc.fs = append(fc.fs[:len(fc.fs):len(fc.fs)], f)
+	return fc
+}
+
+func (ifc *iterFilterCursor) Scan() bool {
+scan:
+	for ifc.iterCursor.Scan() {
+		for _, f := range ifc.fs {
+			if !f(ifc) {
+				continue scan
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (ifc iterFilterCursor) Count() (n int) {
+scan:
+	for ifc.iterCursor.Scan() {
+		for _, f := range ifc.fs {
+			if !f(&ifc) {
+				continue scan
+			}
+		}
+		n++
+	}
+	return n
+}
+
+func (fc filterCursor) Scan() bool {
+scan:
+	for fc.Cursor.Scan() {
+		for _, f := range fc.fs {
+			if !f(fc) {
+				continue scan
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// TODO obvious overcount func (fc filterCursor) Count() int
