@@ -130,7 +130,7 @@ func Example_employees() {
 
 	// pull some ids out
 	var ids []ecs.EntityID
-	for it := shop.Iter(personInfo.MatchAll()); it.Next(); {
+	for it := shop.Iter(personInfo.All()); it.Next(); {
 		ids = append(ids, it.ID())
 	}
 

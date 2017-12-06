@@ -139,7 +139,7 @@ func TestIter_two(t *testing.T) {
 	assert.Equal(t, ecs.NoType, it.Type())
 
 	// filtering
-	it = s.Iter(scD2.MatchAll())
+	it = s.Iter(scD2.All())
 	assert.Equal(t, 1, it.Count())
 
 	assert.True(t, it.Next())
