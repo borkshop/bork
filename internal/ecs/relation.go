@@ -94,14 +94,10 @@ func (rel *Relation) destroyFromB(bid EntityID, t ComponentType) {
 	}
 }
 
-// Cursor returns a cursor that will scan over relations with given type and
-// that meet the optional where clause.
-func (rel *Relation) Cursor(
-	tcl TypeClause,
-	where func(r ComponentType, ent, a, b Entity) bool,
-) Cursor {
+// Cursor returns a cursor that will scan over relations that match the given type clause.
+func (rel *Relation) Cursor(tcl TypeClause) Cursor {
 	it := rel.Iter(tcl)
-	return &iterCursor{rel: rel, it: it, where: where}
+	return &iterCursor{rel: rel, it: it}
 }
 
 // LookupA returns a Cursor that will iterate over relations involving one or
@@ -141,43 +137,35 @@ func (rel *Relation) insert(r ComponentType, a, b Entity) Entity {
 	return ent
 }
 
-// Delete all relations matching the given type clause and optional where
-// function; this is like Update with a set function that zeros the relation,
-// but marginally faster / simpler.
-func (rel *Relation) Delete(
-	tcl TypeClause,
-	where func(r ComponentType, ent, a, b Entity) bool,
-) {
-	for cur := rel.Cursor(tcl, where); cur.Scan(); {
-		rel.setType(cur.Entity().ID(), NoType)
+// Delete all relations that the given cursor scans.
+func (rel *Relation) Delete(cur Cursor) {
+	for cur.Scan() {
+		rel.setType(cur.R().ID(), NoType)
 	}
 }
 
-// Upsert updates and/or inserts relations:
+// Upsert updates any relations that the given cursor iterates, and may insert
+// new ones.
 //
 // The `each` function may call `emit` 0 or more times for each relation
 // entity; `emit` will return a, maybe newly inserted, entity for the given
-// `r`, `a`, `b` triple that its given.
+// `r`, `a`, `b` triple that it's given.
 //
 // If emit isn't called for an entity, then it is destroyed. The first time
 // `emit` is called the entity is updated; thereafter a new entity is inserted.
 //
 // If no relations matched, then the each function is called exactly once with
-// NilEntity for r, a, and b.
+// a nil Cursor.
 //
 // It returns the total number of `emit()`ed relations, and the total number of
 // matched relations.
 func (rel *Relation) Upsert(
-	tcl TypeClause,
-	where func(r ComponentType, ent, a, b Entity) bool,
-	each func(
-		r ComponentType, ent, a, b Entity,
-		emit func(r ComponentType, a, b Entity) Entity,
-	),
+	cur Cursor,
+	each func(cur Cursor, emit func(r ComponentType, a, b Entity) Entity),
 ) (n, m int) {
-	for cur := rel.Cursor(tcl, where); cur.Scan(); {
-		ent, any := cur.Entity(), false
-		each(cur.R(), ent, cur.A(), cur.B(), func(er ComponentType, ea, eb Entity) Entity {
+	for cur.Scan() {
+		any := false
+		each(cur, func(er ComponentType, ea, eb Entity) Entity {
 			if any {
 				if ea == NilEntity || eb == NilEntity {
 					return NilEntity
@@ -186,17 +174,17 @@ func (rel *Relation) Upsert(
 				return rel.insert(er, ea, eb)
 			}
 			any = true
-			if rel.doUpdate(ent, cur.R(), cur.A(), cur.B(), er, ea, eb) {
+			if rel.doUpdate(cur, er, ea, eb) {
 				n++
 			}
-			return ent
+			return cur.R()
 		})
 		if !any {
-			ent.Destroy()
+			cur.R().Destroy()
 		}
 	}
 	if n == 0 {
-		each(0, NilEntity, NilEntity, NilEntity, func(er ComponentType, ea, eb Entity) Entity {
+		each(nil, func(er ComponentType, ea, eb Entity) Entity {
 			if ea == NilEntity || eb == NilEntity {
 				return NilEntity
 			}
@@ -207,26 +195,23 @@ func (rel *Relation) Upsert(
 	return n, m
 }
 
-func (rel *Relation) doUpdate(
-	ent Entity,
-	or ComponentType, oa, ob Entity,
-	nr ComponentType, na, nb Entity,
-) bool {
+func (rel *Relation) doUpdate(cur Cursor, nr ComponentType, na, nb Entity) bool {
 	if nr == NoType || na == NilEntity || nb == NilEntity {
-		ent.Destroy()
+		cur.R().Destroy()
 		return false
 	}
-	if ent.Type() == NoType {
+	if cur.R().Type() == NoType {
 		return false
 	}
-	if nr != or {
+	ent := cur.R()
+	if nr != ent.Type() {
 		ent.SetType(ComponentType(nr))
 	}
 	i := ent.ID() - 1
-	if na != oa {
+	if na != cur.A() {
 		rel.aids[i] = na.ID()
 	}
-	if nb != ob {
+	if nb != cur.B() {
 		rel.bids[i] = nb.ID()
 	}
 	return true
