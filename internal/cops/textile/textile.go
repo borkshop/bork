@@ -93,7 +93,7 @@ func (t *Textile) SubText(r image.Rectangle) *Textile {
 	}
 }
 
-// StringOffset is a utility for seeking a slice of the underlying strings
+// StringsOffset is a utility for seeking a slice of the underlying strings
 // starting at the given position within the allocation.
 func (t *Textile) StringsOffset(x, y int) int {
 	return (y-t.Rect.Min.Y)*t.Stride + (x - t.Rect.Min.X)

@@ -1,9 +1,10 @@
 // Package text measures and cuts raw text for terminal displays.
-// Rather that implement the gaummut of virtual terminal commands,
-// the text package recognizes only newline "\n", tab "\t", and space " ",
-// assuming all other characters are printable in a single cell.
-// The text package treats white space as transparent, only writing the text
-// and foreground color layer for each cell that contains opaque text.
+//
+// Rather that implement the gamut of virtual terminal commands, the text
+// package recognizes only newline "\n", tab "\t", and space " ", assuming all
+// other characters are printable in a single cell. The text package treats
+// white space as transparent, only writing the text and foreground color layer
+// for each cell that contains opaque text.
 package text
 
 import (
