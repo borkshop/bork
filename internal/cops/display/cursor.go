@@ -130,9 +130,9 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 		// cursor position inline with a scrolling log, by setting the cursor
 		// position relative to an arbitrary origin before rendering.
 		buf = append(buf, "\033["...)
-		buf = append(buf, strconv.Itoa(to.Y+1)...)
+		buf = strconv.AppendInt(buf, int64(to.Y+1), 10)
 		buf = append(buf, ";"...)
-		buf = append(buf, strconv.Itoa(to.X+1)...)
+		buf = strconv.AppendInt(buf, int64(to.X+1), 10)
 		buf = append(buf, "H"...)
 		c.Position = to
 		return buf, c
@@ -179,18 +179,18 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 	// UP
 	if to.Y < c.Position.Y {
 		buf = append(buf, "\033["...)
-		buf = append(buf, strconv.Itoa(c.Position.Y-to.Y)...)
+		buf = strconv.AppendInt(buf, int64(c.Position.Y-to.Y), 10)
 		buf = append(buf, "A"...)
 	}
 
 	// LEFT OR RIGHT
 	if to.X < c.Position.X {
 		buf = append(buf, "\033["...)
-		buf = append(buf, strconv.Itoa(c.Position.X-to.X)...)
+		buf = strconv.AppendInt(buf, int64(c.Position.X-to.X), 10)
 		buf = append(buf, "D"...)
 	} else if to.X > c.Position.X {
 		buf = append(buf, "\033["...)
-		buf = append(buf, strconv.Itoa(to.X-c.Position.X)...)
+		buf = strconv.AppendInt(buf, int64(to.X-c.Position.X), 10)
 		buf = append(buf, "C"...)
 	}
 
