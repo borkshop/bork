@@ -94,24 +94,17 @@ func (rel *Relation) destroyFromB(bid EntityID, t ComponentType) {
 	}
 }
 
-// Cursor returns a cursor that will scan over relations that match the given type clause.
-func (rel *Relation) Cursor(tcl TypeClause) Cursor {
-	it := rel.Iter(tcl)
-	return &iterCursor{rel: rel, it: it}
-}
-
-// LookupA returns a Cursor that will iterate over relations involving one or
-// more given A entities.
-func (rel *Relation) LookupA(tcl TypeClause, ids ...EntityID) Cursor {
-	// TODO: indexing
-	return rel.scanLookup(tcl, false, ids)
-}
-
-// LookupB returns a Cursor that will iterate over relations involving one or
-// more given B entities.
-func (rel *Relation) LookupB(tcl TypeClause, ids ...EntityID) Cursor {
-	// TODO: indexing
-	return rel.scanLookup(tcl, true, ids)
+// Select creates a cursor with the given options applied. If none are given,
+// TrueClause is used; so the default is basically "select all".
+func (rel *Relation) Select(opts ...CursorOpt) Cursor {
+	if len(opts) == 0 {
+		return TrueClause.apply(rel, nil)
+	}
+	cur := opts[0].apply(rel, nil)
+	for _, opt := range opts[1:] {
+		cur = opt.apply(rel, cur)
+	}
+	return cur
 }
 
 // Upsert updates any relations that the given cursor iterates, and may insert

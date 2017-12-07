@@ -7,6 +7,7 @@ import (
 
 // TypeClause is a logical filter for ComponentTypes.
 type TypeClause interface {
+	CursorOpt
 	test(ComponentType) bool
 	// TODO this is a convenient place to start, but to make it perform, we'll
 	// need to compile to a tighter for linear scan and/or to proper planning

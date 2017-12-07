@@ -1,5 +1,64 @@
 package ecs
 
+// CursorOpt specifies which relational entites are scanned by the cursor.
+// TypeClause implements CursorOpt, and is the most basic one.
+type CursorOpt interface {
+	apply(*Relation, Cursor) Cursor
+}
+
+func (cc constClause) apply(rel *Relation, cur Cursor) Cursor {
+	return typeClauseOpt{cc}.apply(rel, cur)
+}
+func (t allClause) apply(rel *Relation, cur Cursor) Cursor    { return typeClauseOpt{t}.apply(rel, cur) }
+func (t anyClause) apply(rel *Relation, cur Cursor) Cursor    { return typeClauseOpt{t}.apply(rel, cur) }
+func (t notAllClause) apply(rel *Relation, cur Cursor) Cursor { return typeClauseOpt{t}.apply(rel, cur) }
+func (t notAnyClause) apply(rel *Relation, cur Cursor) Cursor { return typeClauseOpt{t}.apply(rel, cur) }
+func (tcls andClause) apply(rel *Relation, cur Cursor) Cursor {
+	return typeClauseOpt{tcls}.apply(rel, cur)
+}
+func (tcls orClause) apply(rel *Relation, cur Cursor) Cursor {
+	return typeClauseOpt{tcls}.apply(rel, cur)
+}
+
+type typeClauseOpt struct{ TypeClause }
+
+func (tco typeClauseOpt) apply(rel *Relation, cur Cursor) Cursor {
+	if cur == nil {
+		return &iterCursor{
+			rel: rel,
+			it:  rel.Iter(tco.TypeClause),
+		}
+	}
+
+	if nc := tco.justApply(rel, cur); nc != nil {
+		return nc
+	}
+
+	return filterCursor{Cursor: cur}.with(tco.filter)
+}
+
+func (tco typeClauseOpt) filter(cur Cursor) bool { return tco.test(cur.R().Type()) }
+
+func (tco typeClauseOpt) justApply(rel *Relation, cur Cursor) Cursor {
+	switch impl := cur.(type) {
+	case *iterCursor:
+		impl.it.tcl = and(impl.it.tcl, tco.TypeClause)
+		return impl
+
+	case *iterFilterCursor:
+		impl.it.tcl = and(impl.it.tcl, tco.TypeClause)
+		return impl
+
+	case filterCursor:
+		if nc := tco.justApply(rel, impl.Cursor); nc != nil {
+			impl.Cursor = nc
+			return impl
+		}
+
+	}
+	return nil
+}
+
 // Cursor iterates through a Relation.
 type Cursor interface {
 	Scan() bool
@@ -9,52 +68,45 @@ type Cursor interface {
 	B() Entity
 }
 
-func (rel *Relation) scanLookup(tcl TypeClause, co bool, qids []EntityID) Cursor {
-	// TODO: if qids is big enough, build a set first
-	if co {
-		return &coScanCursor{
-			qids: qids,
-			iterCursor: iterCursor{
-				rel: rel,
-				it:  rel.Iter(tcl),
-			},
-		}
-	}
-	return &scanCursor{
-		qids: qids,
-		iterCursor: iterCursor{
-			rel: rel,
-			it:  rel.Iter(tcl),
-		},
-	}
+// InA returns a cursor option that limits the cursor to relations involving
+// one or more given A-side entities.
+func InA(ids ...EntityID) CursorOpt {
+	// TODO: if ids is big enough, build a set
+	return lookupAOpt(ids)
 }
 
-type scanCursor struct {
-	iterCursor
-	qids []EntityID
+// InB returns a cursor option that limits the cursor to relations involving
+// one or more given A-side entities.
+func InB(ids ...EntityID) CursorOpt {
+	// TODO: if ids is big enough, build a set
+	return lookupBOpt(ids)
 }
 
-func (sc *scanCursor) Scan() bool {
-	for sc.iterCursor.Scan() {
-		id := sc.iterCursor.a.ID()
-		for _, qid := range sc.qids {
-			if qid == id {
-				return true
-			}
+type lookupAOpt []EntityID
+type lookupBOpt []EntityID
+
+// TODO indexing support beyond a filter predicate
+func (lko lookupAOpt) apply(rel *Relation, cur Cursor) Cursor {
+	return Filter(lko.filter).apply(rel, cur)
+}
+func (lko lookupBOpt) apply(rel *Relation, cur Cursor) Cursor {
+	return Filter(lko.filter).apply(rel, cur)
+}
+
+func (lko lookupAOpt) filter(cur Cursor) bool {
+	id := cur.A().ID()
+	for _, qid := range lko {
+		if qid == id {
+			return true
 		}
 	}
 	return false
 }
-
-type coScanCursor scanCursor
-
-func (csc *coScanCursor) Scan() bool {
-	for csc.iterCursor.Scan() {
-		id := csc.iterCursor.b.ID()
-		for _, qid := range csc.qids {
-			if qid == id {
-				return true
-			}
+func (lko lookupBOpt) filter(cur Cursor) bool {
+	id := cur.B().ID()
+	for _, qid := range lko {
+		if qid == id {
+			return true
 		}
 	}
 	return false
@@ -90,18 +142,25 @@ func (cur iterCursor) R() Entity { return cur.r }
 func (cur iterCursor) A() Entity { return cur.a }
 func (cur iterCursor) B() Entity { return cur.b }
 
-// FilterCursor returns a cursor filtered by the given
-// predicate function; its Count() method may ignore the
+// Filter is a CursorOpt that applies a filtering
+// predicate function to a cursor. NOTE this the
+// returned Cursor's Count() method may ignore the
 // filter, drastically over-counting.
-func FilterCursor(cur Cursor, f func(Cursor) bool) Cursor {
+type Filter func(Cursor) bool
+
+func (f Filter) apply(rel *Relation, cur Cursor) Cursor {
+	if cur == nil {
+		return f.apply(rel, TrueClause.apply(rel, nil))
+	}
+
 	switch impl := cur.(type) {
-	case (*iterCursor):
+	case *iterCursor:
 		return iterFilterCursor{iterCursor: *impl}.with(f)
 
-	case (*iterFilterCursor):
+	case *iterFilterCursor:
 		return impl.with(f)
 
-	case (filterCursor):
+	case filterCursor:
 		return impl.with(f)
 
 	default:

@@ -1,6 +1,7 @@
 package ecs_test
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -67,6 +68,59 @@ func (tcs testCases) run(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, tc.run)
 	}
+}
+
+func collectAIDs(cur ecs.Cursor) (ids []ecs.EntityID) {
+	for cur.Scan() {
+		ids = append(ids, cur.A().ID())
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return ids
+}
+
+func collectBIDs(cur ecs.Cursor) (ids []ecs.EntityID) {
+	for cur.Scan() {
+		ids = append(ids, cur.B().ID())
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return ids
+}
+
+func TestRelation_Select(t *testing.T) {
+	testCases{
+
+		{"TypeClause", func(t *testing.T) {
+			_, _, r := setupRelTest(0, 0)
+			assert.Equal(t, 12, r.Select(srFoo.All()).Count())
+			assert.Equal(t, 6, r.Select(srBar.All()).Count())
+		}},
+
+		{"Lookup A", func(t *testing.T) {
+			_, _, r := setupRelTest(0, 0)
+			cur := r.Select(ecs.InA(1, 5, 7, 9))
+			assert.Equal(t, 4, cur.Count())
+			assert.Equal(t, []ecs.EntityID{2, 2, 3, 3}, collectBIDs(cur))
+		}},
+
+		{"Lookup B", func(t *testing.T) {
+			_, _, r := setupRelTest(0, 0)
+			cur := r.Select(ecs.InB(6, 7, 8, 9))
+			assert.Equal(t, 2, cur.Count())
+			assert.Equal(t, []ecs.EntityID{3, 3}, collectAIDs(cur))
+		}},
+
+		{"filter", func(t *testing.T) {
+			a, _, r := setupRelTest(0, 0)
+			fil := func(cur ecs.Cursor) bool {
+				return a.d1[cur.A().ID()] < 10
+			}
+			cur := r.Select(ecs.Filter(fil))
+			assert.Equal(t, 8, cur.Count())
+			assert.Equal(t, []ecs.EntityID{1, 1, 2, 2, 2, 3, 3, 3}, collectAIDs(cur))
+			cur = r.Select(ecs.Filter(fil))
+			assert.Equal(t, []ecs.EntityID{1, 1, 2, 3, 4, 5, 6, 7}, collectBIDs(cur))
+		}},
+	}.run(t)
 }
 
 func TestRelation_destruction(t *testing.T) {
