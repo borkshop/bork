@@ -8,44 +8,49 @@ import (
 	"github.com/borkshop/bork/internal/ecs"
 )
 
+const (
+	srFoo ecs.ComponentType = 1 << iota
+	srBar
+)
+
 func setupRelTest(aFlags, bFlags ecs.RelationFlags) (a, b *stuff, rel *ecs.Relation) {
 	a = newStuff()
-	a1 := a.AddEntity(scData)
-	a2 := a.AddEntity(scData)
-	a3 := a.AddEntity(scData)
-	a4 := a.AddEntity(scData)
-	a5 := a.AddEntity(scData)
-	a6 := a.AddEntity(scData)
-	a7 := a.AddEntity(scData)
-	_ = a.AddEntity(scData) // a8
+	a1 := a.addData(3)
+	a2 := a.addData(6)
+	a3 := a.addData(9)
+	a4 := a.addData(12)
+	a5 := a.addData(15, 30, 45, 60)
+	a6 := a.addData(18)
+	a7 := a.addData(21)
+	_ = a.addData(24) // a8
 
 	b = newStuff()
-	b1 := b.AddEntity(scData)
-	b2 := b.AddEntity(scData)
-	b3 := b.AddEntity(scData)
-	b4 := b.AddEntity(scData)
-	b5 := b.AddEntity(scData)
-	b6 := b.AddEntity(scData)
-	b7 := b.AddEntity(scData)
-	_ = b.AddEntity(scData) // b8
+	b1 := b.addData(5)
+	b2 := b.addData(10, 20, 30, 40)
+	b3 := b.addData(15)
+	b4 := b.addData(20, 40, 60, 80)
+	b5 := b.addData(25)
+	b6 := b.addData(30, 60, 90, 120)
+	b7 := b.addData(35)
+	_ = b.addData(40, 80, 120, 160) // b8
 
 	rel = ecs.NewRelation(&a.Core, aFlags, &b.Core, bFlags)
 
 	rel.Upsert(nil, func(uc *ecs.UpsertCursor) {
 
-		uc.Create(1, a1, b2)
-		uc.Create(1, a1, b3)
-		uc.Create(1, a2, b4)
-		uc.Create(1, a2, b5)
-		uc.Create(1, a3, b6)
-		uc.Create(1, a3, b7)
+		uc.Create(srFoo, a1, b2)
+		uc.Create(srFoo, a1, b3)
+		uc.Create(srFoo, a2, b4)
+		uc.Create(srFoo, a2, b5)
+		uc.Create(srFoo, a3, b6)
+		uc.Create(srFoo, a3, b7)
 
-		uc.Create(1, a2, b1)
-		uc.Create(1, a3, b1)
-		uc.Create(1, a4, b2)
-		uc.Create(1, a5, b2)
-		uc.Create(1, a6, b3)
-		uc.Create(1, a7, b3)
+		uc.Create(srFoo|srBar, a2, b1)
+		uc.Create(srFoo|srBar, a3, b1)
+		uc.Create(srFoo|srBar, a4, b2)
+		uc.Create(srFoo|srBar, a5, b2)
+		uc.Create(srFoo|srBar, a6, b3)
+		uc.Create(srFoo|srBar, a7, b3)
 
 	})
 

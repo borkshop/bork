@@ -31,6 +31,17 @@ func newStuff() *stuff {
 	return s
 }
 
+func (s *stuff) addData(d1 int, d2 ...int) ecs.Entity {
+	ent := s.AddEntity(scData)
+	id := ent.ID()
+	s.d1[id] = d1
+	if len(d2) > 0 {
+		ent.Add(scD2)
+		s.d2[id] = append(s.d2[id], d2...)
+	}
+	return ent
+}
+
 func (s *stuff) allocData(id ecs.EntityID, t ecs.ComponentType) {
 	s.d1 = append(s.d1, 0)
 	s.d2 = append(s.d2, nil)
