@@ -56,9 +56,11 @@ func (perf *Perf) Process() {
 		_ = perf.stopProfiling()
 	}
 
-	perf.time[perf.i].start = time.Now()
-	perf.Proc.Process()
-	perf.time[perf.i].end = time.Now()
+	if perf.Proc != nil {
+		perf.time[perf.i].start = time.Now()
+		perf.Proc.Process()
+		perf.time[perf.i].end = time.Now()
+	}
 
 	runtime.ReadMemStats(&perf.memStats[perf.i])
 
