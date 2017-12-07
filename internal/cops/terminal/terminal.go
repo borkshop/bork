@@ -3,7 +3,6 @@
 package terminal
 
 import (
-	"fmt"
 	"image"
 	"syscall"
 	"unsafe"
@@ -27,29 +26,29 @@ func New(fd uintptr) Terminal {
 	return t
 }
 
-func (t Terminal) set() {
-	termios.Tcsetattr(t.fd, termios.TCSANOW, &t.now)
+func (t Terminal) set() error {
+	return termios.Tcsetattr(t.fd, termios.TCSANOW, &t.now)
 }
 
 // Restore resets the terminal capabilities to their original values,
 // at time of construction.
-func (t *Terminal) Restore() {
-	termios.Tcsetattr(t.fd, termios.TCSANOW, &t.old)
+func (t *Terminal) Restore() error {
+	return termios.Tcsetattr(t.fd, termios.TCSANOW, &t.old)
 }
 
 // SetNoEcho suppresses input to output echoing, so printable characters typed
 // into the terminal are not implicitly written back out.
-func (t Terminal) SetNoEcho() {
+func (t Terminal) SetNoEcho() error {
 	t.now.Lflag &^= syscall.ECHO
-	t.set()
+	return t.set()
 }
 
 // SetRaw makes a terminal suitable for full-screen terminal user interfaces,
 // eliminating keyboard shortcuts for job control, echo, line buffering, and
 // escape key debouncing.
-func (t Terminal) SetRaw() {
+func (t Terminal) SetRaw() error {
 	termios.Cfmakeraw(&t.now)
-	t.set()
+	return t.set()
 }
 
 // Bounds returns the terminal dimensions as an "image".Rectangle, suitable for
@@ -81,17 +80,17 @@ func size(fd uintptr) (size image.Point, err error) {
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL,
 		fd, syscall.TIOCGWINSZ, uintptr(unsafe.Pointer(&dimensions)))
 	if errno != 0 {
-		return image.Point{}, fmt.Errorf("ioctl errno %d", errno)
+		return image.Point{}, errno
 	}
 	return image.Pt(int(dimensions[1]), int(dimensions[0])), nil
 }
 
-func SetSize(fd uintptr, size image.Point) (err error) {
+func SetSize(fd uintptr, size image.Point) error {
 	dimensions := [4]uint16{uint16(size.Y), uint16(size.X), 0, 0}
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL,
 		fd, syscall.TIOCSWINSZ, uintptr(unsafe.Pointer(&dimensions)))
 	if errno != 0 {
-		return fmt.Errorf("ioctl errno %d", errno)
+		return errno
 	}
 	return nil
 }
