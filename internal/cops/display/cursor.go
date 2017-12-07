@@ -66,20 +66,20 @@ var (
 
 // Hide hides the cursor.
 func (c Cursor) Hide(buf []byte) ([]byte, Cursor) {
-	if c.Visibility == Hidden {
-		return buf, c
+	if c.Visibility != Hidden {
+		c.Visibility = Hidden
+		buf = append(buf, "\033[?25l"...)
 	}
-	c.Visibility = Hidden
-	return append(buf, "\033[?25l"...), c
+	return buf, c
 }
 
 // Show reveals the cursor.
 func (c Cursor) Show(buf []byte) ([]byte, Cursor) {
-	if c.Visibility == Visible {
-		return buf, c
+	if c.Visibility != Visible {
+		c.Visibility = Visible
+		buf = append(buf, "\033[?25h"...)
 	}
-	c.Visibility = Visible
-	return append(buf, "\033[?25h"...), c
+	return buf, c
 }
 
 // Clear erases the whole display; implicitly invalidates the cursor position
@@ -91,12 +91,12 @@ func (c Cursor) Clear(buf []byte) ([]byte, Cursor) {
 
 // Reset returns the terminal to default white on black colors.
 func (c Cursor) Reset(buf []byte) ([]byte, Cursor) {
-	if c.Foreground == Colors[7] && c.Background == Colors[0] {
-		return buf, c
+	if c.Foreground != Colors[7] || c.Background != Colors[0] {
+		c.Foreground = Colors[7]
+		c.Background = Colors[0]
+		buf = append(buf, "\033[m"...)
 	}
-	c.Foreground = Colors[7]
-	c.Background = Colors[0]
-	return append(buf, "\033[m"...), c
+	return buf, c
 }
 
 // Home seeks the cursor to the origin, using display absolute coordinates.
