@@ -7,14 +7,15 @@ import (
 var (
 	// Palette3 contains the first 8 Colors.
 	Palette3 color.Palette
+
 	// Palette4 contains the first 16 Colors.
 	Palette4 color.Palette
+
 	// Palette8 contains all 256 paletted virtual terminal colors.
 	Palette8 color.Palette
 
-	// colorIndex maps colors back to their palette index,
-	// suitable for mapping arbitrary colors back to palette indexes in the 24
-	// bit color model.
+	// colorIndex maps colors back to their palette index, suitable for mapping
+	// arbitrary colors back to palette indexes in the 24 bit color model.
 	colorIndex map[color.RGBA]int
 )
 

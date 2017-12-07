@@ -1,12 +1,15 @@
 // Package display models, composes, and renders virtual terminal displays
 // using ANSI escape sequences.
+//
 // Models displays as three layers: a text layer and foreground and background
 // color layers as images in any logical color space.
-// The package includes colors, palettes, and rendering models for terminal
+//
+// Also included are colors, palettes, and rendering models for terminal
 // displays supporting 0, 3, 4, 8, and 24 bit color.
-// The package also includes a cursor that tracks the known position and colors
-// of the cursor, appending ANSI escape sequences to incrementally modify that
-// state.
+//
+// Finally a cursor that tracks the known state of the terminal cursor is
+// included; it is useful for appending ANSI escape sequences that
+// incrementally modify the terminal cursor state .
 package display
 
 import (
@@ -17,8 +20,8 @@ import (
 	"github.com/borkshop/bork/internal/cops/textile"
 )
 
-// New returns a new display with the given bounding rectangle.
-// The rectangle need not rest at the origin.
+// New returns a new display with the given bounding rectangle, which need not
+// rest at the origin.
 func New(r image.Rectangle) *Display {
 	return &Display{
 		Background: image.NewRGBA(r),
@@ -28,11 +31,11 @@ func New(r image.Rectangle) *Display {
 	}
 }
 
-// New2 returns a pair of displays with the same rectangle,
-// suitable for creating front and back buffers.
+// New2 returns a pair of displays with the same rectangle, suitable for
+// creating front and back buffers.
 //
-//  bounds := term.Bounds()
-//	front, back := display.New2(bounds)
+//     bounds := term.Bounds()
+//     front, back := display.New2(bounds)
 func New2(r image.Rectangle) (*Display, *Display) {
 	return New(r), New(r)
 }
@@ -83,17 +86,17 @@ func (d *Display) Set(x, y int, t string, f, b color.Color) {
 }
 
 // Draw composes one display over another. The bounds dictate the region of the
-// destination.  The offset dictates the position within the source. Draw will:
+// destination. The offset dictates the position within the source. Draw will:
 //
 // Overwrite the text layer for all non-empty text cells inside the rectangle.
 // Fill the text with space " " to overdraw all cells.
 //
 // Draw the foreground of the source over the foreground of the destination
-// image.  Typically, the foreground is transparent for all cells empty of
-// text.  Otherwise, this operation can have interesting results.
+// image. Typically, the foreground is transparent for all cells empty of
+// text. Otherwise, this operation can have interesting results.
 //
 // Draw the background of the source over the *background* of the destination
-// image.  This allows for translucent background colors on the source image
+// image. This allows for translucent background colors on the source image
 // partially obscuring the text of the destination image.
 //
 // Draw the background of the source over the background of the destination

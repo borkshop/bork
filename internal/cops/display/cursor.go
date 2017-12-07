@@ -14,18 +14,22 @@ type Cursor struct {
 	// so the next position change must be relative to the beginning of the
 	// same line or possibly the origin.
 	Position image.Point
+
 	// Foreground is the foreground color for subsequent text.
 	// Transparent indicates that the color is unknown, so the next text must
 	// be preceded by an SGR (set graphics) ANSI sequence to set it.
 	Foreground color.RGBA
+
 	// Foreground is the foreground color for subsequent text.
 	// Transparent indicates that the color is unknown, so the next text must
 	// be preceded by an SGR (set graphics) ANSI sequence to set it.
 	Background color.RGBA
+
 	// Visibility indicates whether the cursor is visible.
 	Visibility Visibility
 }
 
+// Visibility represents the visibility of a Cursor.
 type Visibility int
 
 const (
@@ -78,10 +82,9 @@ func (c Cursor) Show(buf []byte) ([]byte, Cursor) {
 	return append(buf, "\033[?25h"...), c
 }
 
-// Clear erases the whole display.
+// Clear erases the whole display; implicitly invalidates the cursor position
+// since its behavior is inconsistent across terminal implementations.
 func (c Cursor) Clear(buf []byte) ([]byte, Cursor) {
-	// Clear implicitly invalidates the cursor position since its behavior is
-	// inconsistent across terminal implementations.
 	c.Position = Lost
 	return append(buf, "\033[2J"...), c
 }
@@ -102,7 +105,7 @@ func (c Cursor) Home(buf []byte) ([]byte, Cursor) {
 	return append(buf, "\033[H"...), c
 }
 
-// Go moves the cursor to another position, prefering to use relative motion,
+// Go moves the cursor to another position, preferring to use relative motion,
 // using line relative if the column is unknown, using display origin relative
 // only if the line is also unknown. If the column is unknown, use "\r" to seek
 // to column 0 of the same line.
@@ -123,11 +126,9 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 
 	if c.Position.X == -1 {
 		// If only horizontal position is unknown, return to first column and
-		// march forward.
-		// Rendering a non-ASCII cell of unknown or indeterminite width may
-		// invalidate the column number.
-		// For example, a skin tone emoji may or may not render as a single
-		// column glyph.
+		// march forward. Rendering a non-ASCII cell of unknown or
+		// indeterminate width may invalidate the column number. For example, a
+		// skin tone emoji may or may not render as a single column glyph.
 		buf = append(buf, "\r"...)
 		c.Position.X = 0
 		// Continue...
@@ -145,9 +146,8 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 
 		// In addition to scrolling back to the first column generally, this
 		// has the effect of resetting the column if writing a multi-byte
-		// string invalidates the cursor's horizontal position.
-		// For example, a skin tone emoji may or may not render as a single
-		// column glyph.
+		// string invalidates the cursor's horizontal position. For example, a
+		// skin tone emoji may or may not render as a single column glyph.
 	}
 
 	// DOWN
