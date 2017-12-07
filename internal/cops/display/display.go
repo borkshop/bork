@@ -95,7 +95,7 @@ func (d *Display) Set(x, y int, t string, f, b color.Color) {
 // image. Typically, the foreground is transparent for all cells empty of
 // text. Otherwise, this operation can have interesting results.
 //
-// Draw the background of the source over the *background* of the destination
+// Draw the background of the source over the *foreground* of the destination
 // image. This allows for translucent background colors on the source image
 // partially obscuring the text of the destination image.
 //
