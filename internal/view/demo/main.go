@@ -65,24 +65,34 @@ func (w *world) Close() error {
 }
 
 func (w *world) HandleKey(k view.KeyEvent) error {
-	switch k.Ch {
-	case 'h':
-		w.generate(w.grid.Size.Add(point.Pt(-1, 0)))
-	case 'l':
-		w.generate(w.grid.Size.Add(point.Pt(1, 0)))
-	case 'j':
-		w.generate(w.grid.Size.Add(point.Pt(0, -1)))
-	case 'k':
-		w.generate(w.grid.Size.Add(point.Pt(0, 1)))
-	case 'y':
-		w.generate(w.grid.Size.Add(point.Pt(-1, 1)))
-	case 'u':
-		w.generate(w.grid.Size.Add(point.Pt(1, 1)))
-	case 'b':
-		w.generate(w.grid.Size.Add(point.Pt(-1, -1)))
-	case 'n':
-		w.generate(w.grid.Size.Add(point.Pt(1, -1)))
+	handled := w.ui.Dash.HandleKey(k)
+
+	if !handled {
+		handled = true
+		switch k.Ch {
+		case 'h':
+			w.generate(w.grid.Size.Add(point.Pt(-1, 0)))
+		case 'l':
+			w.generate(w.grid.Size.Add(point.Pt(1, 0)))
+		case 'j':
+			w.generate(w.grid.Size.Add(point.Pt(0, -1)))
+		case 'k':
+			w.generate(w.grid.Size.Add(point.Pt(0, 1)))
+		case 'y':
+			w.generate(w.grid.Size.Add(point.Pt(-1, 1)))
+		case 'u':
+			w.generate(w.grid.Size.Add(point.Pt(1, 1)))
+		case 'b':
+			w.generate(w.grid.Size.Add(point.Pt(-1, -1)))
+		case 'n':
+			w.generate(w.grid.Size.Add(point.Pt(1, -1)))
+		default:
+			handled = false
+		}
 	}
+
+	w.perf.Process()
+
 	return nil
 }
 
