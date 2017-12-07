@@ -43,8 +43,7 @@ func Draw(dst *Textile, r image.Rectangle, src *Textile, sp image.Point) {
 	w, h := r.Dx(), r.Dy()
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			t := src.At(sp.X+x, sp.Y+y)
-			if t != "" {
+			if t := src.At(sp.X+x, sp.Y+y); t != "" {
 				dst.Set(r.Min.X+x, r.Min.Y+y, t)
 			}
 		}
