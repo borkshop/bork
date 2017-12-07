@@ -21,12 +21,13 @@ func Bounds(str string) image.Rectangle {
 	width, height := 0, 0
 	x, y := 0, 1
 	for _, r := range str {
-		if r == '\n' {
+		switch r {
+		case '\n':
 			y++
 			x = 0
-		} else if r == '\t' {
+		case '\t':
 			x = ((x + tabStopWidth) / tabStopWidth) * tabStopWidth
-		} else {
+		default:
 			x++
 			if x > width {
 				width = x
@@ -43,17 +44,17 @@ func Bounds(str string) image.Rectangle {
 func Write(dst *display.Display, bounds image.Rectangle, str string, f color.Color) {
 	x, y := 0, 0
 	for _, r := range str {
-		if r == '\n' {
+		switch r {
+		case '\n':
 			y++
 			x = 0
-		} else if r == '\r' {
-		} else if r == '\t' {
+		case '\r':
+		case '\t':
 			x = ((x + tabStopWidth) / tabStopWidth) * tabStopWidth
-		} else if r == ' ' {
+		case ' ':
 			x++
-		} else {
-			pt := image.Pt(x, y).Add(bounds.Min)
-			if pt.In(bounds) {
+		default:
+			if pt := image.Pt(x, y).Add(bounds.Min); pt.In(bounds) {
 				dst.Text.Set(pt.X, pt.Y, string(r))
 				dst.Foreground.Set(pt.X, pt.Y, f)
 			}
