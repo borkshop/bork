@@ -33,7 +33,7 @@ func Main() error {
 		return err
 	}
 
-	if err := terminal.SetSize(follower.Fd(), bounds.Max); err != nil {
+	if err := terminal.New(follower.Fd()).SetSize(bounds.Max); err != nil {
 		return err
 	}
 
