@@ -46,15 +46,15 @@ func renderBackgroundColor(buf []byte, p color.Palette, c color.RGBA) []byte {
 func renderForegroundColorIndex(buf []byte, i int) []byte {
 	if i < 8 {
 		buf = append(buf, "\033["...)
-		buf = append(buf, strconv.Itoa(int(30+i))...)
+		buf = strconv.AppendInt(buf, int64(30+i), 10)
 		buf = append(buf, "m"...)
 	} else if i < 16 {
 		buf = append(buf, "\033["...)
-		buf = append(buf, strconv.Itoa(int(90-8+i))...)
+		buf = strconv.AppendInt(buf, int64(90-8+i), 10)
 		buf = append(buf, "m"...)
 	} else {
 		buf = append(buf, "\033[38;5;"...)
-		buf = append(buf, strconv.Itoa(int(i))...)
+		buf = strconv.AppendInt(buf, int64(i), 10)
 		buf = append(buf, "m"...)
 	}
 	return buf
@@ -63,15 +63,15 @@ func renderForegroundColorIndex(buf []byte, i int) []byte {
 func renderBackgroundColorIndex(buf []byte, i int) []byte {
 	if i < 8 {
 		buf = append(buf, "\033["...)
-		buf = append(buf, strconv.Itoa(int(40+i))...)
+		buf = strconv.AppendInt(buf, int64(40+i), 10)
 		buf = append(buf, "m"...)
 	} else if i < 16 {
 		buf = append(buf, "\033["...)
-		buf = append(buf, strconv.Itoa(int(100-8+i))...)
+		buf = strconv.AppendInt(buf, int64(100-8+i), 10)
 		buf = append(buf, "m"...)
 	} else {
 		buf = append(buf, "\033[48;5;"...)
-		buf = append(buf, strconv.Itoa(int(i))...)
+		buf = strconv.AppendInt(buf, int64(i), 10)
 		buf = append(buf, "m"...)
 	}
 	return buf
@@ -95,11 +95,11 @@ func renderColor24(buf []byte, code string, c color.RGBA) []byte {
 	buf = append(buf, "\033["...)
 	buf = append(buf, code...)
 	buf = append(buf, ";2;"...)
-	buf = append(buf, strconv.Itoa(int(c.R))...)
+	buf = strconv.AppendInt(buf, int64(c.R), 10)
 	buf = append(buf, ";"...)
-	buf = append(buf, strconv.Itoa(int(c.G))...)
+	buf = strconv.AppendInt(buf, int64(c.G), 10)
 	buf = append(buf, ";"...)
-	buf = append(buf, strconv.Itoa(int(c.B))...)
+	buf = strconv.AppendInt(buf, int64(c.B), 10)
 	buf = append(buf, "m"...)
 	return buf
 }
