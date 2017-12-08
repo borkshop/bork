@@ -1,6 +1,7 @@
 package display
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"strconv"
@@ -33,10 +34,25 @@ type Cursor struct {
 type Visibility int
 
 const (
-	Mysterious Visibility = iota
-	Hidden
+	// Hidden represents a hidden cursor.
+	Hidden Visibility = iota + 1
+
+	// Visible represents a normal cursor.
 	Visible
 )
+
+func (v Visibility) String() string {
+	switch v {
+	case 0:
+		return "Unknown"
+	case Hidden:
+		return "Hidden"
+	case Visible:
+		return "Visible"
+	default:
+		return fmt.Sprintf("Invalid<%d>", int(v))
+	}
+}
 
 var (
 	// Lost indicates that the cursor position is unknown.
@@ -49,7 +65,6 @@ var (
 		Position:   Lost,
 		Foreground: Transparent,
 		Background: Transparent,
-		Visibility: Mysterious,
 	}
 
 	// Reset is a cursor state indicating that the cursor is at the origin
@@ -60,7 +75,6 @@ var (
 		Position:   image.ZP,
 		Foreground: Colors[7],
 		Background: Colors[0],
-		Visibility: Mysterious,
 	}
 )
 
