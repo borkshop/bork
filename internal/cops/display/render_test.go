@@ -1,4 +1,4 @@
-package display
+package display_test
 
 import (
 	"image"
@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	. "github.com/borkshop/bork/internal/cops/display"
 )
 
 func TestRenderMultiRuneCell(t *testing.T) {

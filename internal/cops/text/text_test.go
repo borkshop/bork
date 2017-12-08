@@ -1,12 +1,14 @@
-package text
+package text_test
 
 import (
 	"image"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/rectangle"
-	"github.com/stretchr/testify/assert"
+	. "github.com/borkshop/bork/internal/cops/text"
 )
 
 func TestBounds(t *testing.T) {
