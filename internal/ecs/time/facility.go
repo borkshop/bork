@@ -1,4 +1,4 @@
-package ecsTime
+package time
 
 import (
 	"math"
