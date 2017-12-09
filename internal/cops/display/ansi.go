@@ -33,13 +33,22 @@ func init() {
 
 func renderNoColor(buf []byte, cur Cursor, _, _ color.RGBA) ([]byte, Cursor) { return buf, cur }
 
+var (
+	fgColorCache = make(map[color.RGBA]string, 1024)
+	bgColorCache = make(map[color.RGBA]string, 1024)
+)
+
 func renderCompatColor24(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cursor) {
 	if fg != cur.Foreground {
 		if i, ok := colorIndex[fg]; ok {
 			buf = append(buf, fgColorStrings[i]...)
 		} else {
-			buf = append(buf, "\033[38;2"...)
-			buf = renderColor24(buf, fg)
+			s, ok := fgColorCache[fg]
+			if !ok {
+				s = "\033[38;2" + byteStrings[fg.R] + byteStrings[fg.G] + byteStrings[fg.B] + "m"
+				fgColorCache[fg] = s
+			}
+			buf = append(buf, s...)
 		}
 		cur.Foreground = fg
 	}
@@ -47,8 +56,12 @@ func renderCompatColor24(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cur
 		if i, ok := colorIndex[bg]; ok {
 			buf = append(buf, bgColorStrings[i]...)
 		} else {
-			buf = append(buf, "\033[48;2"...)
-			buf = renderColor24(buf, bg)
+			s, ok := bgColorCache[bg]
+			if !ok {
+				s = "\033[48;2" + byteStrings[bg.R] + byteStrings[bg.G] + byteStrings[bg.B] + "m"
+				bgColorCache[bg] = s
+			}
+			buf = append(buf, s...)
 		}
 		cur.Background = bg
 	}
@@ -57,22 +70,22 @@ func renderCompatColor24(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cur
 
 func renderJustColor24(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cursor) {
 	if fg != cur.Foreground {
-		buf = append(buf, "\033[38;2"...)
-		buf = renderColor24(buf, fg)
+		s, ok := fgColorCache[fg]
+		if !ok {
+			s = "\033[38;2" + byteStrings[fg.R] + byteStrings[fg.G] + byteStrings[fg.B] + "m"
+			fgColorCache[fg] = s
+		}
+		buf = append(buf, s...)
 		cur.Foreground = fg
 	}
 	if bg != cur.Background {
-		buf = append(buf, "\033[48;2"...)
-		buf = renderColor24(buf, bg)
+		s, ok := bgColorCache[bg]
+		if !ok {
+			s = "\033[48;2" + byteStrings[bg.R] + byteStrings[bg.G] + byteStrings[bg.B] + "m"
+			bgColorCache[bg] = s
+		}
+		buf = append(buf, s...)
 		cur.Background = bg
 	}
 	return buf, cur
-}
-
-func renderColor24(buf []byte, c color.RGBA) []byte {
-	buf = append(buf, byteStrings[c.R]...)
-	buf = append(buf, byteStrings[c.G]...)
-	buf = append(buf, byteStrings[c.B]...)
-	buf = append(buf, "m"...)
-	return buf
 }
