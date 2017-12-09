@@ -33,6 +33,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/ojrac/opensimplex-go"
+  packages = ["."]
+  revision = "c0d2b8b324684d1e69e72eaf01f69ff700e3396a"
+
+[[projects]]
+  branch = "master"
   name = "github.com/pkg/term"
   packages = ["termios"]
   revision = "b1f72af2d63057363398bec5873d16a98b453312"
@@ -64,6 +70,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6a137efe97e75d0d51028a61ffd493af5160a5ffef7100b8e80bb3ef71511be0"
+  inputs-digest = "762af1e7e6510b65bbeaf64779b19184108aaa0e1279cc5f38ebb05f19e8a8a3"
   solver-name = "gps-cdcl"
   solver-version = 1

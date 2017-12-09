@@ -8,6 +8,7 @@ import (
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/rectangle"
 	"github.com/borkshop/bork/internal/cops/terminal"
+	opensimplex "github.com/ojrac/opensimplex-go"
 )
 
 func main() {
@@ -47,8 +48,24 @@ Loop:
 		walls := rectangle.Inset(bounds, 6, 3)
 		front.Fill(walls, " ", white, white)
 		floor := rectangle.Inset(walls, 3, 1)
+
+		// generate floor tile noise
+		noise := opensimplex.NewWithSeed(0)
+		for y := walls.Min.Y; y < walls.Max.Y; y++ {
+			for x := walls.Min.X; x < walls.Max.X; x++ {
+				n := noise.Eval2(float64((x+1)/4), float64(y/2))
+				o := uint8(0)
+				if ((x+1)/4+(y/2))&1 == 0 {
+					o = 5
+				}
+				c := color.Gray{uint8(n*10) + (255 - 15) + o}
+				front.Foreground.Set(x, y, c)
+				front.Background.Set(x, y, c)
+			}
+		}
+
 		for y := floor.Min.Y; y < floor.Min.Y+h; y++ {
-			for x := floor.Min.X; x < floor.Min.X+w*3; x += 3 {
+			for x := floor.Min.X; x < floor.Min.X+w*2; x += 2 {
 				front.Text.Set(x, y, "👨‍👩‍👧‍👧")
 			}
 		}
