@@ -81,22 +81,28 @@ func renderForegroundColor24(buf []byte, c color.RGBA) []byte {
 	if i, ok := colorIndex[c]; ok {
 		return renderForegroundColorIndex(buf, i)
 	}
-	return renderColor24(append(buf, "\033[38;2;"...), c)
+	return renderColor24(append(buf, "\033[38;2"...), c)
 }
 
 func renderBackgroundColor24(buf []byte, c color.RGBA) []byte {
 	if i, ok := colorIndex[c]; ok {
 		return renderBackgroundColorIndex(buf, i)
 	}
-	return renderColor24(append(buf, "\033[48;2;"...), c)
+	return renderColor24(append(buf, "\033[48;2"...), c)
+}
+
+var byteStrings [256]string
+
+func init() {
+	for i := 0; i < len(byteStrings); i++ {
+		byteStrings[i] = ";" + strconv.Itoa(i)
+	}
 }
 
 func renderColor24(buf []byte, c color.RGBA) []byte {
-	buf = strconv.AppendInt(buf, int64(c.R), 10)
-	buf = append(buf, ";"...)
-	buf = strconv.AppendInt(buf, int64(c.G), 10)
-	buf = append(buf, ";"...)
-	buf = strconv.AppendInt(buf, int64(c.B), 10)
+	buf = append(buf, byteStrings[c.R]...)
+	buf = append(buf, byteStrings[c.G]...)
+	buf = append(buf, byteStrings[c.B]...)
 	buf = append(buf, "m"...)
 	return buf
 }
