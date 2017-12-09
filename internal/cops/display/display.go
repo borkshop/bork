@@ -118,7 +118,21 @@ func (d *Display) At(x, y int) (t string, f, b color.Color) {
 	if d == nil {
 		return "", Colors[7], color.Transparent
 	}
-	return d.Text.At(x, y), d.Foreground.At(x, y), d.Background.At(x, y)
+	t = d.Text.At(x, y)
+	f = d.Foreground.At(x, y)
+	b = d.Background.At(x, y)
+	return t, f, b
+}
+
+// RGBAAt is a faster version of At.
+func (d *Display) RGBAAt(x, y int) (t string, f, b color.RGBA) {
+	if d == nil {
+		return "", Colors[7], color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+	}
+	t = d.Text.At(x, y)
+	f = d.Foreground.RGBAAt(x, y)
+	b = d.Background.RGBAAt(x, y)
+	return t, f, b
 }
 
 // Bounds returns the bounding rectangle of the display.
@@ -139,8 +153,8 @@ func Render(buf []byte, cur Cursor, over *Display, model Model) ([]byte, Cursor)
 func RenderOver(buf []byte, cur Cursor, over, under *Display, model Model) ([]byte, Cursor) {
 	for y := over.Rect.Min.Y; y < over.Rect.Max.Y; y++ {
 		for x := over.Rect.Min.X; x < over.Rect.Max.X; x++ {
-			ot, of, ob := over.At(x, y)
-			ut, uf, ub := under.At(x, y)
+			ot, of, ob := over.RGBAAt(x, y)
+			ut, uf, ub := under.RGBAAt(x, y)
 			if len(ot) == 0 {
 				ot = " "
 			}
