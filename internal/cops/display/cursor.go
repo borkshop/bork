@@ -151,7 +151,7 @@ func (c Cursor) jumpTo(buf []byte, to image.Point) ([]byte, Cursor) {
 	return buf, c
 }
 
-func (c Cursor) down(buf []byte, n int) ([]byte, Cursor) {
+func (c Cursor) linedown(buf []byte, n int) ([]byte, Cursor) {
 	// Use \r\n to advance cursor Y on the chance it will advance the
 	// display bounds.
 	buf = append(buf, "\r\n"...)
@@ -168,6 +168,14 @@ func (c Cursor) up(buf []byte, n int) ([]byte, Cursor) {
 	buf = strconv.AppendInt(buf, int64(n), 10)
 	buf = append(buf, "A"...)
 	c.Position.Y -= n
+	return buf, c
+}
+
+func (c Cursor) down(buf []byte, n int) ([]byte, Cursor) {
+	buf = append(buf, "\033["...)
+	buf = strconv.AppendInt(buf, int64(n), 10)
+	buf = append(buf, "B"...)
+	c.Position.Y += n
 	return buf, c
 }
 
@@ -211,7 +219,7 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 	}
 
 	if n := to.Y - c.Position.Y; n > 0 {
-		buf, c = c.down(buf, n)
+		buf, c = c.linedown(buf, n)
 	} else if n < 0 {
 		buf, c = c.up(buf, -n)
 	}
