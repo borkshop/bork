@@ -134,9 +134,6 @@ func Draw(dst *Display, r image.Rectangle, src *Display, sp image.Point, op draw
 // At returns the text and foreground and background colors at the given
 // coordinates.
 func (d *Display) At(x, y int) (t string, f, b color.Color) {
-	if d == nil {
-		return "", Colors[7], color.Transparent
-	}
 	t = d.Text.At(x, y)
 	f = d.Foreground.At(x, y)
 	b = d.Background.At(x, y)
@@ -145,9 +142,6 @@ func (d *Display) At(x, y int) (t string, f, b color.Color) {
 
 // RGBAAt is a faster version of At.
 func (d *Display) RGBAAt(x, y int) (t string, f, b color.RGBA) {
-	if d == nil {
-		return "", Colors[7], color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
-	}
 	if i := d.Text.StringsOffset(x, y); i >= 0 && i < len(d.Text.Strings) {
 		return d.rgbaati(i)
 	}
@@ -176,7 +170,36 @@ func (d *Display) Bounds() image.Rectangle {
 // Render appends ANSI escape sequences to a byte slice to overwrite an entire
 // terminal window, using the best matching colors in the terminal color model.
 func Render(buf []byte, cur Cursor, over *Display, renderColor ColorModel) ([]byte, Cursor) {
-	return RenderOver(buf, cur, over, nil, renderColor)
+	vp := over.Rect
+	pt := vp.Min
+	i := over.Text.StringsOffset(pt.X, pt.Y)
+	buf, cur = cur.Go(buf, pt)
+	for {
+		ot, of, ob := over.rgbaati(i)
+		if len(ot) == 0 {
+			ot = " "
+		}
+		buf, cur = renderColor(buf, cur, of, ob)
+		buf, cur = cur.WriteGlyph(buf, ot)
+		i++
+		if i >= len(over.Text.Strings) {
+			break
+		}
+		pt.X++
+		if pt.X >= vp.Max.X {
+			pt.X = vp.Min.X
+			pt.Y++
+			if pt.Y >= vp.Max.Y {
+				break
+			}
+			buf, cur = cur.linedown(buf, 1)
+			if vp.Min.X > 0 {
+				buf, cur = cur.right(buf, vp.Min.X)
+			}
+		}
+	}
+	buf, cur = cur.Reset(buf)
+	return buf, cur
 }
 
 // RenderOver appends ANSI escape sequences to a byte slice to update a
@@ -190,18 +213,11 @@ func RenderOver(buf []byte, cur Cursor, over, under *Display, renderColor ColorM
 	}
 	pt := vp.Min
 	i := over.Text.StringsOffset(pt.X, pt.Y)
-	j := 0
-	if under != nil {
-		j = under.Text.StringsOffset(pt.X, pt.Y)
-	}
+	j := under.Text.StringsOffset(pt.X, pt.Y)
 	buf, cur = cur.Go(buf, pt)
 	for i < len(over.Text.Strings) {
-		var ut string
-		var uf, ub color.RGBA
 		ot, of, ob := over.rgbaati(i)
-		if under != nil {
-			ut, uf, ub = under.rgbaati(j)
-		}
+		ut, uf, ub := under.rgbaati(j)
 		if len(ot) == 0 {
 			ot = " "
 		}
@@ -217,9 +233,7 @@ func RenderOver(buf []byte, cur Cursor, over, under *Display, renderColor ColorM
 			}
 			buf, cur = renderColor(buf, cur, of, ob)
 			buf, cur = cur.WriteGlyph(buf, ot)
-			if under != nil {
-				under.setrgbai(j, ot, of, ob)
-			}
+			under.setrgbai(j, ot, of, ob)
 		}
 		pt.X++
 		if pt.X >= vp.Max.X {
