@@ -87,9 +87,21 @@ func (d *Display) Set(x, y int, t string, f, b color.Color) {
 
 // SetRGBA is a faster Set.
 func (d *Display) SetRGBA(x, y int, t string, f, b color.RGBA) {
-	d.Text.Set(x, y, t)
-	d.Foreground.SetRGBA(x, y, f)
-	d.Background.SetRGBA(x, y, b)
+	if i := d.Text.StringsOffset(x, y); i >= 0 && i < len(d.Text.Strings) {
+		d.setrgbai(i, t, f, b)
+	}
+}
+
+func (d *Display) setrgbai(i int, t string, f, b color.RGBA) {
+	d.Text.Strings[i] = t
+	d.Foreground.Pix[i] = f.R
+	d.Foreground.Pix[i+1] = f.G
+	d.Foreground.Pix[i+2] = f.B
+	d.Foreground.Pix[i+3] = f.A
+	d.Background.Pix[i] = b.R
+	d.Background.Pix[i+1] = b.G
+	d.Background.Pix[i+2] = b.B
+	d.Background.Pix[i+3] = b.A
 }
 
 // Draw composes one display over another. The bounds dictate the region of the
@@ -137,17 +149,22 @@ func (d *Display) RGBAAt(x, y int) (t string, f, b color.RGBA) {
 		return "", Colors[7], color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
 	}
 	if i := d.Text.StringsOffset(x, y); i >= 0 && i < len(d.Text.Strings) {
-		t = d.Text.Strings[i]
-		i *= 4
-		f.R = d.Foreground.Pix[i]
-		f.G = d.Foreground.Pix[i+1]
-		f.B = d.Foreground.Pix[i+2]
-		f.A = d.Foreground.Pix[i+3]
-		b.R = d.Background.Pix[i]
-		b.G = d.Background.Pix[i+1]
-		b.B = d.Background.Pix[i+2]
-		b.A = d.Background.Pix[i+3]
+		return d.rgbaati(i)
 	}
+	return t, f, b
+}
+
+func (d *Display) rgbaati(i int) (t string, f, b color.RGBA) {
+	t = d.Text.Strings[i]
+	i *= 4
+	f.R = d.Foreground.Pix[i]
+	f.G = d.Foreground.Pix[i+1]
+	f.B = d.Foreground.Pix[i+2]
+	f.A = d.Foreground.Pix[i+3]
+	b.R = d.Background.Pix[i]
+	b.G = d.Background.Pix[i+1]
+	b.B = d.Background.Pix[i+2]
+	b.A = d.Background.Pix[i+3]
 	return t, f, b
 }
 
@@ -167,25 +184,36 @@ func Render(buf []byte, cur Cursor, over *Display, model Model) ([]byte, Cursor)
 // same in the back model, using escape sequences and the nearest matching
 // colors in the given color model.
 func RenderOver(buf []byte, cur Cursor, over, under *Display, model Model) ([]byte, Cursor) {
-	for y := over.Rect.Min.Y; y < over.Rect.Max.Y; y++ {
-		for x := over.Rect.Min.X; x < over.Rect.Max.X; x++ {
-			ot, of, ob := over.RGBAAt(x, y)
-			ut, uf, ub := under.RGBAAt(x, y)
-			if len(ot) == 0 {
-				ot = " "
-			}
-			if len(ut) == 0 {
-				ut = " "
-			}
-			if ot == ut && of == uf && ob == ub {
-				continue
-			}
+	if over.Rect.Min.X > 0 || over.Rect.Min.Y > 0 {
+		panic("rendering an offseted Display not supported")
+	}
+	// TODO should check for over/under dimension mismatch?
+	x, y := 0, 0
+	for i := 0; i < len(over.Text.Strings); i++ {
+		var ut string
+		var uf, ub color.RGBA
+		ot, of, ob := over.rgbaati(i)
+		if under != nil {
+			ut, uf, ub = under.rgbaati(i)
+		}
+		if len(ot) == 0 {
+			ot = " "
+		}
+		if len(ut) == 0 {
+			ut = " "
+		}
+		if ot != ut || of != uf || ob != ub {
 			buf, cur = cur.Go(buf, image.Pt(x, y))
 			buf, cur = model.RenderRGBA(buf, cur, of, ob)
 			buf, cur = cur.WriteGlyph(buf, ot)
 			if under != nil {
-				under.SetRGBA(x, y, ot, of, ob)
+				under.setrgbai(i, ot, of, ob)
 			}
+		}
+		x++
+		if x >= over.Text.Stride {
+			x -= over.Text.Stride
+			y++
 		}
 	}
 	buf, cur = cur.Reset(buf)
