@@ -22,15 +22,15 @@ func (pcg *pcg) rand() uint32 {
 
 type benchSim struct {
 	pcg
-	*display.Display
+	// *display.Display
+	*display.Renderer
 }
 
 func Benchmark_displayDemo(b *testing.B) {
 	for _, sz := range []int{4, 8, 16, 32, 64, 128, 256} {
 		b.Run(strconv.Itoa(sz), func(b *testing.B) {
 			var sim benchSim
-			front, back := display.New2(image.Rect(0, 0, sz, sz))
-			sim.Display = front
+			sim.Renderer = display.NewRenderer(display.Model24, display.New(image.Rect(0, 0, sz, sz)))
 			sim.generate()
 
 			var (
@@ -42,11 +42,8 @@ func Benchmark_displayDemo(b *testing.B) {
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				sim.Display = front
 				sim.iterate()
-				buf = buf[:0]
-				buf, cur = display.RenderOver(buf, cur, front, back, display.Model24)
-				front, back = back, front
+				buf, cur = sim.Render(buf[:0], cur)
 			}
 		})
 	}

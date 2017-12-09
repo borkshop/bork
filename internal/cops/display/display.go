@@ -16,6 +16,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"sort"
 
 	"github.com/borkshop/bork/internal/cops/textile"
 )
@@ -249,3 +250,172 @@ func RenderOver(buf []byte, cur Cursor, over, under *Display, renderColor ColorM
 	buf, cur = cur.Reset(buf)
 	return buf, cur
 }
+
+// Renderer supports differential display rendering by tracking invalidated
+// cells, rather than requiring a classic front/back buffer pair.
+type Renderer struct {
+	*Display
+	Model
+	inval [][2]int
+	q     int
+}
+
+// NewRenderer creates a new differential renderer around the given display
+// buffer.
+func NewRenderer(m Model, d *Display) *Renderer {
+	return &Renderer{
+		Display: d,
+		Model:   m,
+		inval:   make([][2]int, 0, d.Rect.Dx()*d.Rect.Dy()/2),
+	}
+}
+
+// Diff scans any overlapping region with the given front buffer, updating
+// cells in the renderer's backing buffer. Useful to support classical code
+// that wants to own and generate a front buffer.
+//
+// Returns the number of updated cells.
+func (r *Renderer) Diff(over *Display) (n int) {
+	vp := over.Rect.Intersect(r.Rect)
+	pt := vp.Min
+	i := over.Text.StringsOffset(pt.X, pt.Y)
+	j := r.Text.StringsOffset(pt.X, pt.Y)
+	for i < len(over.Text.Strings) {
+		if ot, of, ob := over.rgbaati(i); r.setrgbai(j, ot, of, ob) {
+			n++
+		}
+		pt.X++
+		if pt.X >= vp.Max.X {
+			pt.X = vp.Min.X
+			pt.Y++
+		}
+		if pt.Y >= vp.Max.Y {
+			break
+		}
+		i++
+		j++
+	}
+	return n
+}
+
+// Render all invalidated cells into the given buffer, wrt the given cursor
+// state. Returns a extended buffer and updated cursor state (noop if no
+// invalidated cells).
+func (r *Renderer) Render(buf []byte, cur Cursor) ([]byte, Cursor) {
+	if len(r.inval) == 0 {
+		return buf, cur
+	}
+	maxX := r.Rect.Dx()
+	stride := r.Text.Stride
+	for i := range r.inval {
+		j, k := r.inval[i][0], r.inval[i][1]
+		buf, cur = cur.Go(buf, image.Pt(j%stride, j/stride))
+		for {
+			t, f, b := r.rgbaati(j)
+			buf, cur = r.RenderRGBA(buf, cur, f, b)
+			buf, cur = cur.WriteGlyph(buf, t)
+			j++
+			if j > k {
+				break
+			}
+			if cur.Position.X >= maxX {
+				buf, cur = cur.linedown(buf, 1)
+				if r.Rect.Min.X > 0 {
+					buf, cur = cur.right(buf, r.Rect.Min.X)
+				}
+			} else if cur.Position.X < 0 {
+				buf, cur = cur.Go(buf, image.Pt(j%stride, j/stride))
+			}
+		}
+	}
+	r.inval = r.inval[:0]
+	return cur.Reset(buf)
+}
+
+// Set a cell, marking it as invalid; does NOT check for difference.
+func (r *Renderer) Set(x, y int, t string, f, b color.Color) {
+	stride := r.Text.Stride
+	i := y*stride + x
+	r.invalidate(i)
+	r.Display.Set(x, y, t, f, b)
+}
+
+// SetRGBA values and text into a cell, invalidating ONLY IF changed.
+func (r *Renderer) SetRGBA(x, y int, t string, f, b color.RGBA) {
+	stride := r.Text.Stride
+	i := y*stride + x
+	r.setrgbai(i, t, f, b)
+}
+
+func (r *Renderer) setrgbai(i int, t string, f, b color.RGBA) bool {
+	ut, uf, ub := r.rgbaati(i)
+	if len(t) == 0 {
+		t = " "
+	}
+	if len(ut) == 0 {
+		ut = " "
+	}
+	if t != ut || f != uf || b != ub {
+		r.invalidate(i)
+		r.Display.setrgbai(i, t, f, b)
+		return true
+	}
+	return false
+}
+
+func (r *Renderer) invalidate(i int) {
+	r.q = i
+	j := sort.Search(len(r.inval), r.search)
+
+	// beyond
+	if j == len(r.inval) {
+		r.inval = append(r.inval, [2]int{i, i})
+	}
+
+	// already invalidated
+	if i <= r.inval[j][1] {
+		return
+	}
+
+	// expand current end
+	if k := r.inval[j][1] + 1; k == i {
+		// coalesce
+		if j < len(r.inval)-1 && r.inval[j+1][0]-1 == i {
+			r.inval[j][1] = r.inval[j+1][1]
+			copy(r.inval[j+1:], r.inval[j+2:])
+			r.inval = r.inval[:len(r.inval)-1]
+			return
+		}
+
+		r.inval[j][1] = i
+		return
+	}
+
+	// expand current start
+	if k := r.inval[j][0] - 1; k == i {
+		// coalesce
+		if j > 0 && r.inval[j-1][1]+1 == i {
+			r.inval[j-1][1] = r.inval[j][1]
+			copy(r.inval[j:], r.inval[j+1:])
+			r.inval = r.inval[:len(r.inval)-1]
+			return
+		}
+
+		r.inval[j][0] = i
+		return
+	}
+
+	// expand prior
+	if j > 0 {
+		if k := r.inval[j-1][1] + 1; k == i {
+			r.inval[j-1][1] = k
+			return
+		}
+	}
+
+	// insert
+	copy(r.inval[j+1:len(r.inval)+1], r.inval[j:])
+	r.inval[j] = [2]int{i, i}
+}
+
+func (r Renderer) search(i int) bool { return r.inval[i][0] >= r.q }

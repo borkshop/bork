@@ -44,3 +44,7 @@ func TestRenderBlankAndMultiRuneCellOver(t *testing.T) {
 	buf, cur = RenderOver(buf, cur, front, back, Model0)
 	assert.Equal(t, []byte(" "+whiteHand+"\r\033[2C "), buf)
 }
+
+func TestRenderer(t *testing.T) {
+	// TODO should do same job as RenderOver
+}
