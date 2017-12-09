@@ -185,17 +185,19 @@ func Render(buf []byte, cur Cursor, over *Display, model Model) ([]byte, Cursor)
 // colors in the given color model.
 func RenderOver(buf []byte, cur Cursor, over, under *Display, mod Model) ([]byte, Cursor) {
 	m := mod.(model)
-	if over.Rect.Min.X > 0 || over.Rect.Min.Y > 0 {
-		panic("rendering an offseted Display not supported")
+	vp := over.Rect.Intersect(under.Rect)
+	pt := vp.Min
+	i := over.Text.StringsOffset(pt.X, pt.Y)
+	j := 0
+	if under != nil {
+		j = under.Text.StringsOffset(pt.X, pt.Y)
 	}
-	// TODO should check for over/under dimension mismatch?
-	x, y := 0, 0
-	for i := 0; i < len(over.Text.Strings); i++ {
+	for i < len(over.Text.Strings) {
 		var ut string
 		var uf, ub color.RGBA
 		ot, of, ob := over.rgbaati(i)
 		if under != nil {
-			ut, uf, ub = under.rgbaati(i)
+			ut, uf, ub = under.rgbaati(j)
 		}
 		if len(ot) == 0 {
 			ot = " "
@@ -204,18 +206,23 @@ func RenderOver(buf []byte, cur Cursor, over, under *Display, mod Model) ([]byte
 			ut = " "
 		}
 		if ot != ut || of != uf || ob != ub {
-			buf, cur = cur.Go(buf, image.Pt(x, y))
+			buf, cur = cur.Go(buf, pt)
 			buf, cur = m.RenderRGBA(buf, cur, of, ob)
 			buf, cur = cur.WriteGlyph(buf, ot)
 			if under != nil {
-				under.setrgbai(i, ot, of, ob)
+				under.setrgbai(j, ot, of, ob)
 			}
 		}
-		x++
-		if x >= over.Text.Stride {
-			x -= over.Text.Stride
-			y++
+		pt.X++
+		if pt.X >= vp.Max.X {
+			pt.X = vp.Min.X
+			pt.Y++
 		}
+		if pt.Y >= vp.Max.Y {
+			break
+		}
+		i++
+		j++
 	}
 	buf, cur = cur.Reset(buf)
 	return buf, cur
