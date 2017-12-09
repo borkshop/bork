@@ -170,6 +170,13 @@ func (c Cursor) up(buf []byte, n int) ([]byte, Cursor) {
 	return buf, c
 }
 
+func (c Cursor) left(buf []byte, n int) ([]byte, Cursor) {
+	buf = append(buf, "\033["...)
+	buf = strconv.AppendInt(buf, int64(n), 10)
+	buf = append(buf, "D"...)
+	return buf, c
+}
+
 func (c Cursor) right(buf []byte, n int) ([]byte, Cursor) {
 	buf = append(buf, "\033["...)
 	buf = strconv.AppendInt(buf, int64(n), 10)
@@ -208,10 +215,8 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 
 	if n := to.X - c.Position.X; n > 0 {
 		buf, c = c.right(buf, n)
-	} else if to.X < c.Position.X {
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(c.Position.X-to.X), 10)
-		buf = append(buf, "D"...)
+	} else if n < 0 {
+		buf, c = c.left(buf, -n)
 	}
 
 	c.Position = to
