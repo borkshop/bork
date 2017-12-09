@@ -136,9 +136,18 @@ func (d *Display) RGBAAt(x, y int) (t string, f, b color.RGBA) {
 	if d == nil {
 		return "", Colors[7], color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
 	}
-	t = d.Text.At(x, y)
-	f = d.Foreground.RGBAAt(x, y)
-	b = d.Background.RGBAAt(x, y)
+	if i := d.Text.StringsOffset(x, y); i >= 0 && i < len(d.Text.Strings) {
+		t = d.Text.Strings[i]
+		i *= 4
+		f.R = d.Foreground.Pix[i]
+		f.G = d.Foreground.Pix[i+1]
+		f.B = d.Foreground.Pix[i+2]
+		f.A = d.Foreground.Pix[i+3]
+		b.R = d.Background.Pix[i]
+		b.G = d.Background.Pix[i+1]
+		b.B = d.Background.Pix[i+2]
+		b.A = d.Background.Pix[i+3]
+	}
 	return t, f, b
 }
 
