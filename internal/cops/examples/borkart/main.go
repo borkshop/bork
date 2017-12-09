@@ -36,6 +36,8 @@ func Main() error {
 	white := color.RGBA{192, 198, 187, 255}
 	blue := color.RGBA{2, 50, 145, 255}
 
+	ren := display.NewRenderer(os.Stdout, display.Model24)
+
 	var buf []byte
 	cur := display.Start
 	buf, cur = cur.Home(buf)
@@ -56,9 +58,9 @@ Loop:
 				n := noise.Eval2(float64((x+1)/4), float64(y/2))
 				o := uint8(0)
 				if ((x+1)/4+(y/2))&1 == 0 {
-					o = 5
+					o = 4
 				}
-				c := color.Gray{uint8(n*10) + (255 - 15) + o}
+				c := color.Gray{uint8(n*4) + (255 - 8) + o}
 				front.Foreground.Set(x, y, c)
 				front.Background.Set(x, y, c)
 			}
@@ -70,7 +72,7 @@ Loop:
 			}
 		}
 
-		buf, cur = display.RenderOver(buf, cur, front, back, display.Model24)
+		buf, cur = ren.RenderOver(buf, cur, front, back)
 		front, back = back, front
 		os.Stdout.Write(buf)
 		buf = buf[0:0]
