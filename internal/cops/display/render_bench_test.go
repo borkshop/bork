@@ -66,7 +66,8 @@ func (sim *benchSim) generate() {
 			t := letters[sim.rand()%26]
 			r := sim.rand()
 			f := color.RGBA{R: uint8(r), G: uint8(r >> 8), B: uint8(r >> 16)}
-			sim.Set(x, y, t, f, color.Transparent)
+			b := color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+			sim.SetRGBA(x, y, t, f, b)
 		}
 	}
 }
@@ -75,9 +76,9 @@ func (sim *benchSim) iterate() {
 	for y := sim.Rect.Min.Y; y < sim.Rect.Max.Y; y++ {
 		for x := sim.Rect.Min.X; x < sim.Rect.Max.X; x++ {
 			if n := byte(sim.rand() % 6); n > 2 {
-				t, f, b := sim.At(x, y)
+				t, f, b := sim.RGBAAt(x, y)
 				t = letters[((t[0]-'a')+(n-3))%26]
-				sim.Set(x, y, t, f, b)
+				sim.SetRGBA(x, y, t, f, b)
 			}
 		}
 	}

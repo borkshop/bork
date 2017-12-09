@@ -85,6 +85,13 @@ func (d *Display) Set(x, y int, t string, f, b color.Color) {
 	d.Background.Set(x, y, b)
 }
 
+// SetRGBA is a faster Set.
+func (d *Display) SetRGBA(x, y int, t string, f, b color.RGBA) {
+	d.Text.Set(x, y, t)
+	d.Foreground.SetRGBA(x, y, f)
+	d.Background.SetRGBA(x, y, b)
+}
+
 // Draw composes one display over another. The bounds dictate the region of the
 // destination. The offset dictates the position within the source. Draw will:
 //
@@ -165,10 +172,10 @@ func RenderOver(buf []byte, cur Cursor, over, under *Display, model Model) ([]by
 				continue
 			}
 			buf, cur = cur.Go(buf, image.Pt(x, y))
-			buf, cur = model.Render(buf, cur, of, ob)
+			buf, cur = model.RenderRGBA(buf, cur, of, ob)
 			buf, cur = cur.WriteGlyph(buf, ot)
 			if under != nil {
-				under.Set(x, y, ot, of, ob)
+				under.SetRGBA(x, y, ot, of, ob)
 			}
 		}
 	}

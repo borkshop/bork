@@ -6,25 +6,25 @@ import (
 
 // Model is the interface for a terminal color rendering model.
 type Model interface {
-	// Render appends the ANSI sequence for changing the foreground and
+	// RenderRGBA appends the ANSI sequence for changing the foreground and
 	// background color to the nearest colors supported by the terminal color
 	// model.
-	Render(buf []byte, cur Cursor, fg, bg color.Color) ([]byte, Cursor)
+	RenderRGBA(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cursor)
 }
 
 type model struct {
-	foreground func([]byte, color.Color) []byte
-	background func([]byte, color.Color) []byte
+	foreground func([]byte, color.RGBA) []byte
+	background func([]byte, color.RGBA) []byte
 }
 
-func (m model) Render(buf []byte, cur Cursor, fg, bg color.Color) ([]byte, Cursor) {
+func (m model) RenderRGBA(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cursor) {
 	if fg != cur.Foreground {
 		buf = m.foreground(buf, fg)
-		cur.Foreground = rgba(fg)
+		cur.Foreground = fg
 	}
 	if bg != cur.Background {
 		buf = m.background(buf, bg)
-		cur.Background = rgba(bg)
+		cur.Background = bg
 	}
 	return buf, cur
 }
@@ -49,7 +49,3 @@ var (
 	// matches.
 	Model24 = model{renderForegroundColor24, renderBackgroundColor24}
 )
-
-func rgba(c color.Color) color.RGBA {
-	return color.RGBAModel.Convert(c).(color.RGBA)
-}
