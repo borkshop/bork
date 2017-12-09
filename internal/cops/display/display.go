@@ -81,8 +81,8 @@ func (d *Display) Clear(r image.Rectangle) {
 // the given position.
 func (d *Display) Set(x, y int, t string, f, b color.Color) {
 	d.Text.Set(x, y, t)
-	d.Foreground.Set(x, y, rgba(f))
-	d.Background.Set(x, y, rgba(b))
+	d.Foreground.Set(x, y, f)
+	d.Background.Set(x, y, b)
 }
 
 // Draw composes one display over another. The bounds dictate the region of the
