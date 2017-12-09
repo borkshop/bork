@@ -163,6 +163,13 @@ func (c Cursor) down(buf []byte, n int) ([]byte, Cursor) {
 	return buf, c
 }
 
+func (c Cursor) up(buf []byte, n int) ([]byte, Cursor) {
+	buf = append(buf, "\033["...)
+	buf = strconv.AppendInt(buf, int64(n), 10)
+	buf = append(buf, "A"...)
+	return buf, c
+}
+
 // Go moves the cursor to another position, preferring to use relative motion,
 // using line relative if the column is unknown, using display origin relative
 // only if the line is also unknown. If the column is unknown, use "\r" to seek
@@ -188,13 +195,8 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 
 	if n := to.Y - c.Position.Y; n > 0 {
 		buf, c = c.down(buf, n)
-	}
-
-	// UP
-	if to.Y < c.Position.Y {
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(c.Position.Y-to.Y), 10)
-		buf = append(buf, "A"...)
+	} else if n < 0 {
+		buf, c = c.up(buf, -n)
 	}
 
 	// LEFT OR RIGHT
