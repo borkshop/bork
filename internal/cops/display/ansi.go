@@ -5,6 +5,32 @@ import (
 	"strconv"
 )
 
+var (
+	byteStrings    [256]string
+	fgColorStrings [256]string
+	bgColorStrings [256]string
+)
+
+func init() {
+	for i := 0; i < len(byteStrings); i++ {
+		byteStrings[i] = ";" + strconv.Itoa(i)
+	}
+
+	i := 0
+	for ; i < 8; i++ {
+		fgColorStrings[i] = "\033[" + strconv.Itoa(30+i) + "m"
+		bgColorStrings[i] = "\033[" + strconv.Itoa(40+i) + "m"
+	}
+	for ; i < 16; i++ {
+		fgColorStrings[i] = "\033[" + strconv.Itoa(90-8+i) + "m"
+		bgColorStrings[i] = "\033[" + strconv.Itoa(100-8+i) + "m"
+	}
+	for ; i < 256; i++ {
+		fgColorStrings[i] = "\033[38;5;" + strconv.Itoa(i) + "m"
+		bgColorStrings[i] = "\033[48;5;" + strconv.Itoa(i) + "m"
+	}
+}
+
 func renderNoColor(buf []byte, c color.RGBA) []byte {
 	return buf
 }
@@ -35,68 +61,26 @@ func renderForegroundColor8(buf []byte, c color.RGBA) []byte {
 
 func renderForegroundColor(buf []byte, p color.Palette, c color.RGBA) []byte {
 	i := p.Index(c)
-	return renderForegroundColorIndex(buf, i)
+	return append(buf, fgColorStrings[i]...)
 }
 
 func renderBackgroundColor(buf []byte, p color.Palette, c color.RGBA) []byte {
 	i := p.Index(c)
-	return renderBackgroundColorIndex(buf, i)
-}
-
-func renderForegroundColorIndex(buf []byte, i int) []byte {
-	if i < 8 {
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(30+i), 10)
-		buf = append(buf, "m"...)
-	} else if i < 16 {
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(90-8+i), 10)
-		buf = append(buf, "m"...)
-	} else {
-		buf = append(buf, "\033[38;5;"...)
-		buf = strconv.AppendInt(buf, int64(i), 10)
-		buf = append(buf, "m"...)
-	}
-	return buf
-}
-
-func renderBackgroundColorIndex(buf []byte, i int) []byte {
-	if i < 8 {
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(40+i), 10)
-		buf = append(buf, "m"...)
-	} else if i < 16 {
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(100-8+i), 10)
-		buf = append(buf, "m"...)
-	} else {
-		buf = append(buf, "\033[48;5;"...)
-		buf = strconv.AppendInt(buf, int64(i), 10)
-		buf = append(buf, "m"...)
-	}
-	return buf
+	return append(buf, bgColorStrings[i]...)
 }
 
 func renderForegroundColor24(buf []byte, c color.RGBA) []byte {
 	if i, ok := colorIndex[c]; ok {
-		return renderForegroundColorIndex(buf, i)
+		return append(buf, fgColorStrings[i]...)
 	}
 	return renderColor24(append(buf, "\033[38;2"...), c)
 }
 
 func renderBackgroundColor24(buf []byte, c color.RGBA) []byte {
 	if i, ok := colorIndex[c]; ok {
-		return renderBackgroundColorIndex(buf, i)
+		return append(buf, bgColorStrings[i]...)
 	}
 	return renderColor24(append(buf, "\033[48;2"...), c)
-}
-
-var byteStrings [256]string
-
-func init() {
-	for i := 0; i < len(byteStrings); i++ {
-		byteStrings[i] = ";" + strconv.Itoa(i)
-	}
 }
 
 func renderColor24(buf []byte, c color.RGBA) []byte {
