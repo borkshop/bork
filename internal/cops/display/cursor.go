@@ -119,23 +119,13 @@ func (c Cursor) Home(buf []byte) ([]byte, Cursor) {
 	return append(buf, "\033[H"...), c
 }
 
-// Go moves the cursor to another position, preferring to use relative motion,
-// using line relative if the column is unknown, using display origin relative
-// only if the line is also unknown. If the column is unknown, use "\r" to seek
-// to column 0 of the same line.
-func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
+func (c Cursor) recover(buf []byte, to image.Point) ([]byte, Cursor) {
 	if c.Position == Lost {
 		// If the cursor position is completely unknown, move relative to
 		// screen origin. This mode must be avoided to render relative to
 		// cursor position inline with a scrolling log, by setting the cursor
 		// position relative to an arbitrary origin before rendering.
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(to.Y+1), 10)
-		buf = append(buf, ";"...)
-		buf = strconv.AppendInt(buf, int64(to.X+1), 10)
-		buf = append(buf, "H"...)
-		c.Position = to
-		return buf, c
+		return c.jumpTo(buf, to)
 	}
 
 	if c.Position.X == -1 {
@@ -147,6 +137,26 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 		c.Position.X = 0
 		// Continue...
 	}
+
+	return buf, c
+}
+
+func (c Cursor) jumpTo(buf []byte, to image.Point) ([]byte, Cursor) {
+	buf = append(buf, "\033["...)
+	buf = strconv.AppendInt(buf, int64(to.Y+1), 10)
+	buf = append(buf, ";"...)
+	buf = strconv.AppendInt(buf, int64(to.X+1), 10)
+	buf = append(buf, "H"...)
+	c.Position = to
+	return buf, c
+}
+
+// Go moves the cursor to another position, preferring to use relative motion,
+// using line relative if the column is unknown, using display origin relative
+// only if the line is also unknown. If the column is unknown, use "\r" to seek
+// to column 0 of the same line.
+func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
+	buf, c = c.recover(buf, to)
 
 	if to.X == 0 && to.Y == c.Position.Y+1 {
 		buf, c = c.Reset(buf)
