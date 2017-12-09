@@ -194,6 +194,7 @@ func RenderOver(buf []byte, cur Cursor, over, under *Display, renderColor ColorM
 	if under != nil {
 		j = under.Text.StringsOffset(pt.X, pt.Y)
 	}
+	buf, cur = cur.Go(buf, pt)
 	for i < len(over.Text.Strings) {
 		var ut string
 		var uf, ub color.RGBA
@@ -208,7 +209,12 @@ func RenderOver(buf []byte, cur Cursor, over, under *Display, renderColor ColorM
 			ut = " "
 		}
 		if ot != ut || of != uf || ob != ub {
-			buf, cur = cur.Go(buf, pt)
+			if dy := pt.Y - cur.Position.Y; dy > 0 {
+				buf, cur = cur.linedown(buf, dy)
+			}
+			if dx := pt.X - cur.Position.X; dx > 0 {
+				buf, cur = cur.right(buf, dx)
+			}
 			buf, cur = renderColor(buf, cur, of, ob)
 			buf, cur = cur.WriteGlyph(buf, ot)
 			if under != nil {
