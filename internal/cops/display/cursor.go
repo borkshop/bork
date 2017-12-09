@@ -151,6 +151,18 @@ func (c Cursor) jumpTo(buf []byte, to image.Point) ([]byte, Cursor) {
 	return buf, c
 }
 
+func (c Cursor) down(buf []byte, n int) ([]byte, Cursor) {
+	// Use \r\n to advance cursor Y on the chance it will advance the
+	// display bounds.
+	buf = append(buf, "\r\n"...)
+	for m := n - 1; m > 0; m-- {
+		buf = append(buf, "\n"...)
+	}
+	c.Position.X = 0
+	c.Position.Y += n
+	return buf, c
+}
+
 // Go moves the cursor to another position, preferring to use relative motion,
 // using line relative if the column is unknown, using display origin relative
 // only if the line is also unknown. If the column is unknown, use "\r" to seek
@@ -174,16 +186,8 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 		// skin tone emoji may or may not render as a single column glyph.
 	}
 
-	// DOWN
-	// Use \r\n to advance cursor Y on the chance it will advance the
-	// display bounds.
-	if to.Y > c.Position.Y {
-		buf = append(buf, "\r"...)
-		c.Position.X = 0
-	}
-	for to.Y > c.Position.Y {
-		buf = append(buf, "\n"...)
-		c.Position.Y++
+	if n := to.Y - c.Position.Y; n > 0 {
+		buf, c = c.down(buf, n)
 	}
 
 	// UP
