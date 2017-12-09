@@ -183,7 +183,8 @@ func Render(buf []byte, cur Cursor, over *Display, model Model) ([]byte, Cursor)
 // terminal display to look like the front model, skipping cells that are the
 // same in the back model, using escape sequences and the nearest matching
 // colors in the given color model.
-func RenderOver(buf []byte, cur Cursor, over, under *Display, model Model) ([]byte, Cursor) {
+func RenderOver(buf []byte, cur Cursor, over, under *Display, mod Model) ([]byte, Cursor) {
+	m := mod.(model)
 	if over.Rect.Min.X > 0 || over.Rect.Min.Y > 0 {
 		panic("rendering an offseted Display not supported")
 	}
@@ -204,7 +205,7 @@ func RenderOver(buf []byte, cur Cursor, over, under *Display, model Model) ([]by
 		}
 		if ot != ut || of != uf || ob != ub {
 			buf, cur = cur.Go(buf, image.Pt(x, y))
-			buf, cur = model.RenderRGBA(buf, cur, of, ob)
+			buf, cur = m.RenderRGBA(buf, cur, of, ob)
 			buf, cur = cur.WriteGlyph(buf, ot)
 			if under != nil {
 				under.setrgbai(i, ot, of, ob)
