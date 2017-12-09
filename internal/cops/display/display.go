@@ -118,7 +118,7 @@ func (d *Display) At(x, y int) (t string, f, b color.Color) {
 	if d == nil {
 		return "", Colors[7], color.Transparent
 	}
-	return d.Text.At(x, y), rgba(d.Foreground.At(x, y)), rgba(d.Background.At(x, y))
+	return d.Text.At(x, y), d.Foreground.At(x, y), d.Background.At(x, y)
 }
 
 // Bounds returns the bounding rectangle of the display.
