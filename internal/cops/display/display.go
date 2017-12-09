@@ -153,6 +153,9 @@ func RenderOver(buf []byte, cur Cursor, over, under *Display, model Model) ([]by
 			buf, cur = cur.Go(buf, image.Pt(x, y))
 			buf, cur = model.Render(buf, cur, of, ob)
 			buf, cur = cur.WriteGlyph(buf, ot)
+			if under != nil {
+				under.Set(x, y, ot, of, ob)
+			}
 		}
 	}
 	buf, cur = cur.Reset(buf)
