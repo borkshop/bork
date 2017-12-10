@@ -9,9 +9,15 @@ import (
 	"github.com/borkshop/bork/internal/cops/display"
 )
 
-// BrailleAt returns the braille bitmap that coresponds to the 2x4 grid at the
+// BitmapReader FIXME
+type BitmapReader interface {
+	BitAt(x, y int) bool
+	Bounds() image.Rectangle
+}
+
+// At returns the braille bitmap that coresponds to the 2x4 grid at the
 // given point in a bitmap.
-func BrailleAt(src display.BitmapReader, sp image.Point) string {
+func At(src BitmapReader, sp image.Point) string {
 	var r rune
 	if src.BitAt(sp.X, sp.Y) {
 		r |= 0x1
@@ -59,7 +65,7 @@ func Draw(dst *display.Display, r image.Rectangle, src image.Image, sp image.Poi
 			pt := image.Pt(x*3, y*6).Add(sp)
 			dx := r.Min.X + x
 			dy := r.Min.Y + y
-			br := BrailleAt(bits, pt)
+			br := At(bits, pt)
 			if br != "" {
 				dst.Text.Set(dx, dy, br)
 				dst.Foreground.Set(dx, dy, on)
