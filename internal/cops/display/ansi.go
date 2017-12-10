@@ -38,7 +38,8 @@ func renderCompatColor24(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cur
 		if i, ok := colorIndex[fg]; ok {
 			buf = append(buf, fgColorStrings[i]...)
 		} else {
-			buf = renderColor24(append(buf, "\033[38;2"...), fg)
+			buf = append(buf, "\033[38;2"...)
+			buf = renderColor24(buf, fg)
 		}
 		cur.Foreground = fg
 	}
@@ -46,7 +47,8 @@ func renderCompatColor24(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cur
 		if i, ok := colorIndex[bg]; ok {
 			buf = append(buf, bgColorStrings[i]...)
 		} else {
-			buf = renderColor24(append(buf, "\033[48;2"...), bg)
+			buf = append(buf, "\033[48;2"...)
+			buf = renderColor24(buf, bg)
 		}
 		cur.Background = bg
 	}
@@ -55,11 +57,13 @@ func renderCompatColor24(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cur
 
 func renderJustColor24(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cursor) {
 	if fg != cur.Foreground {
-		buf = renderColor24(append(buf, "\033[38;2"...), fg)
+		buf = append(buf, "\033[38;2"...)
+		buf = renderColor24(buf, fg)
 		cur.Foreground = fg
 	}
 	if bg != cur.Background {
-		buf = renderColor24(append(buf, "\033[48;2"...), bg)
+		buf = append(buf, "\033[48;2"...)
+		buf = renderColor24(buf, bg)
 		cur.Background = bg
 	}
 	return buf, cur
