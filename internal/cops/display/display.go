@@ -183,11 +183,7 @@ func Render(buf []byte, cur Cursor, over *Display, model Model) ([]byte, Cursor)
 // terminal display to look like the front model, skipping cells that are the
 // same in the back model, using escape sequences and the nearest matching
 // colors in the given color model.
-func RenderOver(buf []byte, cur Cursor, over, under *Display, mod Model) ([]byte, Cursor) {
-	// TODO choose: A.) make model fully concrete and public B.) restore model
-	// interface C.) switch on model type for conditional optimization, like
-	// draw package.
-	m := mod.(model)
+func RenderOver(buf []byte, cur Cursor, over, under *Display, m Model) ([]byte, Cursor) {
 	vp := over.Rect
 	if under != nil {
 		vp = over.Rect.Intersect(under.Rect)
