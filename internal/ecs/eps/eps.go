@@ -116,7 +116,7 @@ func (eps *EPS) create(id ecs.EntityID, t ecs.ComponentType) {
 
 func (eps *EPS) destroy(id ecs.EntityID, t ecs.ComponentType) {
 	eps.pt[id-1] = point.Zero
-	eps.ix.flg[id-1] &= ^epsDef
+	eps.ix.flg[id-1] &^= epsDef
 	eps.ix.key[id-1] = 0
 	if flg := eps.ix.flg[id-1]; flg&epsInval == 0 {
 		eps.ix.flg[id-1] = flg | epsInval
@@ -134,7 +134,7 @@ func (eps *EPS) reindex() {
 	if forceReSort || eps.inval > 3*len(eps.ix.ix)/4 {
 		sort.Sort(eps.ix)
 		for i := range eps.ix.flg {
-			eps.ix.flg[i] &= ^epsInval
+			eps.ix.flg[i] &^= epsInval
 		}
 		eps.inval = 0
 		return
@@ -166,7 +166,7 @@ func (eps *EPS) reindex() {
 			hi = lo
 			eps.ix.ix[hi] = xi
 			inval.ixi[mi] = hi
-			eps.ix.flg[xi] &= ^epsInval
+			eps.ix.flg[xi] &^= epsInval
 			hi++ // XXX dedupe to head?
 			continue
 		}
@@ -194,7 +194,7 @@ func (eps *EPS) reindex() {
 		hi = i
 		eps.ix.ix[hi] = xi
 		inval.ixi[mi] = hi
-		eps.ix.flg[xi] &= ^epsInval
+		eps.ix.flg[xi] &^= epsInval
 		hi++ // XXX dedupe to head?
 	}
 
