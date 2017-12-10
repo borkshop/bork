@@ -4,15 +4,33 @@ import (
 	"image/color"
 )
 
+// TerminalPalette is a limited palette of color for legacy terminals.
+type TerminalPalette color.Palette
+
+// Render the given colors to their closest palette equivalents.
+func (tp TerminalPalette) Render(buf []byte, cur Cursor, fg, bg color.RGBA) ([]byte, Cursor) {
+	if fg != cur.Foreground {
+		i := color.Palette.Index(color.Palette(tp), fg)
+		buf = append(buf, fgColorStrings[i]...)
+		cur.Foreground = fg
+	}
+	if bg != cur.Background {
+		i := color.Palette.Index(color.Palette(tp), bg)
+		buf = append(buf, bgColorStrings[i]...)
+		cur.Background = bg
+	}
+	return buf, cur
+}
+
 var (
 	// Palette3 contains the first 8 Colors.
-	Palette3 color.Palette
+	Palette3 TerminalPalette
 
 	// Palette4 contains the first 16 Colors.
-	Palette4 color.Palette
+	Palette4 TerminalPalette
 
 	// Palette8 contains all 256 paletted virtual terminal colors.
-	Palette8 color.Palette
+	Palette8 TerminalPalette
 
 	// colorIndex maps colors back to their palette index, suitable for mapping
 	// arbitrary colors back to palette indexes in the 24 bit color model.
