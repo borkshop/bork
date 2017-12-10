@@ -16,6 +16,7 @@ const (
 type Corpus struct {
 	ecs.Core
 	markov.Table
+
 	word   []string
 	lookup map[string]ecs.EntityID
 }
@@ -40,7 +41,7 @@ func (c *Corpus) destroyWord(id ecs.EntityID, t ecs.ComponentType) {
 	c.word[id] = ""
 }
 
-func (c *Corpus) ToEntity(s string) ecs.Entity {
+func (c *Corpus) Enity(s string) ecs.Entity {
 	if id, def := c.lookup[s]; def {
 		return c.Ref(id)
 	}
@@ -50,7 +51,7 @@ func (c *Corpus) ToEntity(s string) ecs.Entity {
 	return ent
 }
 
-func (c *Corpus) ToString(ent ecs.Entity) string {
+func (c *Corpus) EntityString(ent ecs.Entity) string {
 	id := c.Deref(ent)
 	if ent.Type().HasAll(componentWord) {
 		return c.word[id]
@@ -59,10 +60,10 @@ func (c *Corpus) ToString(ent ecs.Entity) string {
 }
 
 func (c *Corpus) Ingest(chain []string) {
-	term := c.ToEntity("")
+	term := c.Enity("")
 	last := term
 	for _, s := range chain {
-		ent := c.ToEntity(s)
+		ent := c.Enity(s)
 		c.AddTransition(last, ent, 1)
 		last = ent
 	}
@@ -85,10 +86,10 @@ func Example_markovChain() {
 
 	var parts []string
 	for i := 0; i < 10; i++ {
-		ent := c.ToEntity("")
+		ent := c.Enity("")
 		for {
 			ent = c.ChooseNext(rng, ent)
-			s := c.ToString(ent)
+			s := c.EntityString(ent)
 			if s == "" {
 				break
 			}
