@@ -1,9 +1,11 @@
 package main
 
 import (
+	"image"
 	"log"
 	"math/rand"
 
+	"github.com/borkshop/bork/internal/input"
 	"github.com/borkshop/bork/internal/perf"
 	"github.com/borkshop/bork/internal/point"
 	"github.com/borkshop/bork/internal/view"
@@ -68,26 +70,9 @@ func (w *world) HandleKey(k view.KeyEvent) error {
 	handled := w.ui.Dash.HandleKey(k)
 
 	if !handled {
-		handled = true
-		switch k.Ch {
-		case 'h':
-			w.generate(w.grid.Size.Add(point.Pt(-1, 0)))
-		case 'l':
-			w.generate(w.grid.Size.Add(point.Pt(1, 0)))
-		case 'j':
-			w.generate(w.grid.Size.Add(point.Pt(0, -1)))
-		case 'k':
-			w.generate(w.grid.Size.Add(point.Pt(0, 1)))
-		case 'y':
-			w.generate(w.grid.Size.Add(point.Pt(-1, 1)))
-		case 'u':
-			w.generate(w.grid.Size.Add(point.Pt(1, 1)))
-		case 'b':
-			w.generate(w.grid.Size.Add(point.Pt(-1, -1)))
-		case 'n':
-			w.generate(w.grid.Size.Add(point.Pt(1, -1)))
-		default:
-			handled = false
+		if pt, ok := input.ParseMove(k.Ch, image.ZP); ok {
+			w.generate(w.grid.Size.Add(point.Point(pt)))
+			handled = true
 		}
 	}
 
