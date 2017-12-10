@@ -9,6 +9,7 @@ import (
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/terminal"
 	"github.com/borkshop/bork/internal/hilbert"
+	"github.com/borkshop/bork/internal/input"
 	opensimplex "github.com/ojrac/opensimplex-go"
 )
 
@@ -59,40 +60,25 @@ Loop:
 		var rbuf [1]byte
 		os.Stdin.Read(rbuf[0:1])
 
-		switch rbuf[0] {
-		// case ' ':
-		// 	back.Clear(back.Bounds())
-		case 'q':
-			break Loop
+		if pt, ok := input.ParseMove(rune(rbuf[0]), bounds.Size()); ok {
+			at = at.Add(pt)
+			if at.X < 0 {
+				at.X = 0
+			}
+			if at.Y < 0 {
+				at.Y = 0
+			}
+		} else {
+			switch rbuf[0] {
+			// case ' ':
+			//	 back.Clear(back.Bounds())
+			case 'q':
+				break Loop
 
-		case 'j':
-			at.Y++
-		case 'k':
-			at.Y--
-		case 'h':
-			at.X--
-		case 'l':
-			at.X++
-
-		case 'J':
-			at.Y += bounds.Dy()
-		case 'K':
-			at.Y -= bounds.Dy()
-		case 'H':
-			at.X -= bounds.Dx()
-		case 'L':
-			at.X += bounds.Dx()
-
-		case ' ':
-			buf, cur = cur.Clear(buf)
-			back.Clear(back.Bounds())
-		}
-
-		if at.X < 0 {
-			at.X = 0
-		}
-		if at.Y < 0 {
-			at.Y = 0
+			case ' ':
+				buf, cur = cur.Clear(buf)
+				back.Clear(back.Bounds())
+			}
 		}
 
 	}
