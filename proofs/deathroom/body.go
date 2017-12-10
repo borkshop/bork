@@ -37,12 +37,15 @@ const (
 )
 
 const (
-	bcPartMask = bcHead | bcTorso | bcTail | bcUpperArm | bcForeArm | bcHand | bcThigh | bcCalf | bcFoot
+	bcHPart    = bcHP | bcPart
+	bcArmPart  = bcUpperArm | bcForeArm | bcHand
+	bcLegPart  = bcFoot | bcCalf | bcThigh
+	bcPartMask = bcHead | bcTorso | bcTail | bcArmPart | bcLegPart
 	bcLocMask  = bcRight | bcLeft
 )
 
 const (
-	brControl ecs.RelationType = 1 << iota
+	brControl ecs.ComponentType = 1 << iota
 )
 
 type body struct {
@@ -96,7 +99,7 @@ func newBody() *body {
 	bo.rel.Init(&bo.Core, 0)
 	bo.RegisterAllocator(bcPart, bo.allocPart)
 	bo.RegisterDestroyer(bcDerived, bo.destroyDerived)
-	bo.coGT = bo.rel.Traverse(ecs.AllRel(brControl), ecs.TraverseCoDFS)
+	bo.coGT = bo.rel.Traverse(brControl.All(), ecs.TraverseCoDFS)
 	return bo
 }
 
@@ -118,7 +121,7 @@ func (bo *body) destroyDerived(id ecs.EntityID, t ecs.ComponentType) {
 	if ent := bo.derived[id]; ent != ecs.NilEntity {
 		bo.derived[id] = ecs.NilEntity
 		any := false
-		for it := bo.Iter(ecs.All(bcDerived)); it.Next(); {
+		for it := bo.Iter(bcDerived.All()); it.Next(); {
 			if bo.derived[it.ID()] == ent {
 				any = true
 				break
@@ -152,20 +155,20 @@ func (bo *body) build(rng *rand.Rand) {
 	rightFoot := bo.AddPart(bcRight|bcFoot, 3, 6, 2)
 	leftFoot := bo.AddPart(bcLeft|bcFoot, 3, 6, 2)
 
-	bo.rel.InsertMany(func(insert func(r ecs.RelationType, a, b ecs.Entity) ecs.Entity) {
-		insert(brControl, head, torso)
-		insert(brControl, torso, rightUpperArm)
-		insert(brControl, torso, leftUpperArm)
-		insert(brControl, torso, rightThigh)
-		insert(brControl, torso, leftThigh)
-		insert(brControl, rightUpperArm, rightForeArm)
-		insert(brControl, leftUpperArm, leftForeArm)
-		insert(brControl, rightForeArm, rightHand)
-		insert(brControl, leftForeArm, leftHand)
-		insert(brControl, rightThigh, rightCalf)
-		insert(brControl, leftThigh, leftCalf)
-		insert(brControl, rightCalf, rightFoot)
-		insert(brControl, leftCalf, leftFoot)
+	bo.rel.Upsert(nil, func(uc *ecs.UpsertCursor) {
+		uc.Create(brControl, head, torso)
+		uc.Create(brControl, torso, rightUpperArm)
+		uc.Create(brControl, torso, leftUpperArm)
+		uc.Create(brControl, torso, rightThigh)
+		uc.Create(brControl, torso, leftThigh)
+		uc.Create(brControl, rightUpperArm, rightForeArm)
+		uc.Create(brControl, leftUpperArm, leftForeArm)
+		uc.Create(brControl, rightForeArm, rightHand)
+		uc.Create(brControl, leftForeArm, leftHand)
+		uc.Create(brControl, rightThigh, rightCalf)
+		uc.Create(brControl, leftThigh, leftCalf)
+		uc.Create(brControl, rightCalf, rightFoot)
+		uc.Create(brControl, leftCalf, leftFoot)
 	})
 }
 
@@ -181,7 +184,7 @@ func (bo *body) AddPart(t ecs.ComponentType, hp, dmg, armor int) ecs.Entity {
 
 func (bo *body) Stats() bodyStats {
 	var s bodyStats
-	for it := bo.Iter(ecs.All(bcHP | bcPart)); it.Next(); {
+	for it := bo.Iter(bcHPart.All()); it.Next(); {
 		s.HP += bo.hp[it.ID()]
 		s.MaxHP += bo.maxHP[it.ID()]
 		s.Damage += bo.dmg[it.ID()]
@@ -191,7 +194,7 @@ func (bo *body) Stats() bodyStats {
 }
 
 func (bo *body) HPRange() (hp, maxHP int) {
-	for it := bo.Iter(ecs.All(bcHP)); it.Next(); {
+	for it := bo.Iter(bcHP.All()); it.Next(); {
 		hp += bo.hp[it.ID()]
 		maxHP += bo.maxHP[it.ID()]
 	}
@@ -200,7 +203,7 @@ func (bo *body) HPRange() (hp, maxHP int) {
 
 func (bo *body) HP() int {
 	hp := 0
-	for it := bo.Iter(ecs.All(bcHP)); it.Next(); {
+	for it := bo.Iter(bcHP.All()); it.Next(); {
 		hp += bo.hp[it.ID()]
 	}
 	return hp
@@ -208,7 +211,7 @@ func (bo *body) HP() int {
 
 func (bo *body) choosePart(want func(prior, ent ecs.Entity) bool) ecs.Entity {
 	var choice ecs.Entity
-	for it := bo.Iter(ecs.All(bcPart | bcHP)); it.Next(); {
+	for it := bo.Iter(bcHPart.All()); it.Next(); {
 		if want(choice, it.Entity()) {
 			choice = it.Entity()
 		}
@@ -296,7 +299,7 @@ func (bo *body) DescribePart(ent ecs.Entity) string {
 	case bcLeft:
 		s = "left " + s
 	}
-	if ent.Type().All(bcName) {
+	if ent.Type().HasAll(bcName) {
 		s = fmt.Sprintf(bo.fmt[ent.ID()], s)
 	}
 	return s
@@ -323,7 +326,7 @@ func (bo *body) damagePart(ent ecs.Entity, dmg int) (int, bodyPart, bool) {
 }
 
 func (bo *body) allHeads() []ecs.Entity {
-	it := bo.Iter(ecs.All(bcHead))
+	it := bo.Iter(bcHead.All())
 	r := make([]ecs.Entity, 0, it.Count())
 	for it.Next() {
 		r = append(r, it.Entity())
@@ -347,8 +350,7 @@ func (bo *body) sever(
 	// TODO: consider using a DFS traversal
 
 	type rel struct {
-		ent, a, b ecs.Entity
-		r         ecs.RelationType
+		r, a, b ecs.Entity
 	}
 
 	var (
@@ -374,7 +376,7 @@ func (bo *body) sever(
 		entis[id] = struct{}{}
 
 		ent := bo.Ref(id)
-		if !ent.Type().All(bcPart) {
+		if !ent.Type().HasAll(bcPart) {
 			continue
 		}
 
@@ -389,11 +391,11 @@ func (bo *body) sever(
 		}
 
 		// collect affected relations for final processing
-		for cur := bo.rel.LookupA(ecs.AllRel(brControl), ent.ID()); cur.Scan(); {
-			id := cur.Entity().ID()
+		for cur := bo.rel.Select(brControl.All(), ecs.InA(ent.ID())); cur.Scan(); {
+			id := cur.R().ID()
 			if _, seen := relis[id]; !seen {
 				relis[id] = struct{}{}
-				rels = append(rels, rel{cur.Entity(), cur.A(), cur.B(), cur.R()})
+				rels = append(rels, rel{cur.R(), cur.A(), cur.B()})
 				q = append(q, cur.B().ID())
 			}
 		}
@@ -401,12 +403,12 @@ func (bo *body) sever(
 		defer ent.Destroy()
 
 		if len(q) == 0 {
-			nh, nt, it := 0, 0, bo.Iter(ecs.All(bcPart))
+			nh, nt, it := 0, 0, bo.Iter(bcPart.All())
 			for it.Next() {
 				if _, gone := entis[it.ID()]; !gone {
-					if it.Type().All(bcHead) {
+					if it.Type().HasAll(bcHead) {
 						nh++
-					} else if it.Type().All(bcTorso) {
+					} else if it.Type().HasAll(bcTorso) {
 						nt++
 					}
 				}
@@ -425,16 +427,16 @@ func (bo *body) sever(
 	}
 
 	// finish relation processing
-	cont.rel.InsertMany(func(insert func(r ecs.RelationType, a ecs.Entity, b ecs.Entity) ecs.Entity) {
+	cont.rel.Upsert(nil, func(uc *ecs.UpsertCursor) {
 		for _, rel := range rels {
 			if xa, def := xlate[rel.a.ID()]; def {
 				a := cont.Ref(xa)
 				if xb, def := xlate[rel.b.ID()]; def {
 					b := cont.Ref(xb)
-					insert(brControl, a, b)
+					uc.Create(brControl, a, b)
 				}
 			}
-			defer rel.ent.Destroy()
+			defer rel.r.Destroy()
 		}
 	})
 

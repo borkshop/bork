@@ -97,7 +97,7 @@ func (ct *colorTable) toEntity(a termbox.Attribute) ecs.Entity {
 }
 
 func (ct *colorTable) toColor(ent ecs.Entity) (termbox.Attribute, bool) {
-	if !ent.Type().All(componentTableColor) {
+	if !ent.Type().HasAll(componentTableColor) {
 		return 0, false
 	}
 	return ct.color[ent.ID()], true

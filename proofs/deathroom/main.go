@@ -77,17 +77,15 @@ type world struct {
 	enemyCounter int
 
 	ecs.System
-	pos eps.EPS
+	pos    eps.EPS
+	timers time.Facility
 
-	timers  ecsTime.Timers
-	Names   []string
-	Glyphs  []rune
-	BG      []termbox.Attribute
-	FG      []termbox.Attribute
-	bodies  []*body
-	items   []worldItem
-	antRule []antRule
-	antHead []uint
+	Names  []string
+	Glyphs []rune
+	BG     []termbox.Attribute
+	FG     []termbox.Attribute
+	bodies []*body
+	items  []worldItem
 
 	moves   moves // TODO: maybe subsume into pos?
 	waiting ecs.Iterator
@@ -95,7 +93,7 @@ type world struct {
 
 type moves struct {
 	ecs.Relation
-	timers ecsTime.Timers
+	timers time.Facility
 	n      []int
 	p      []point.Point
 }
@@ -105,7 +103,7 @@ const (
 	movP
 	movT
 
-	mrCollide ecs.RelationType = 1 << iota
+	mrCollide
 	mrHit
 	mrItem
 	mrGoal
@@ -163,12 +161,11 @@ func (w *world) init(v *view.View) {
 
 	w.Procs = append(w.Procs,
 		ecs.ProcFunc(func() {
-			w.moves.Delete(ecs.AnyRel(mrCollide), nil)
+			w.moves.Upsert(w.moves.Select(mrCollide.Any()), nil)
 		}),
 		&w.timers,
 		&w.moves.timers,
 		ecs.ProcFunc(w.generateAIMoves), // give AI a chance!
-		ecs.ProcFunc(w.runAnts),         // Yar!
 		ecs.ProcFunc(w.applyMoves),      // resolve moves
 		ecs.ProcFunc(w.processAIItems),  // nom nom
 		ecs.ProcFunc(w.processCombat),   // e.g. deal damage
@@ -184,20 +181,17 @@ func (w *world) init(v *view.View) {
 	w.FG = []termbox.Attribute{0}
 	w.bodies = []*body{nil}
 	w.items = []worldItem{nil}
-	w.antRule = []antRule{0}
-	w.antHead = []uint{0}
 
-	w.RegisterAllocator(wcName|wcGlyph|wcBG|wcFG|wcBody|wcItem|wcAnt, w.allocWorld)
+	w.RegisterAllocator(wcName|wcGlyph|wcBG|wcFG|wcBody|wcItem, w.allocWorld)
 	w.RegisterCreator(wcInput, w.createInput)
 	w.RegisterCreator(wcBody, w.createBody)
 	w.RegisterDestroyer(wcBody, w.destroyBody)
 	w.RegisterDestroyer(wcItem, w.destroyItem)
 	w.RegisterDestroyer(wcInput, w.destroyInput)
-	w.RegisterDestroyer(wcAnt, w.destroyAnt)
 
 	w.pos.Init(&w.Core, wcPosition)
 	w.moves.init(&w.Core) // TODO: maybe subsume into pos?
-	w.waiting = w.Iter(ecs.All(charMask | wcWaiting))
+	w.waiting = w.Iter((charMask | wcWaiting).All())
 }
 
 var movementRangeLabels = []string{"Walk", "Lunge"}
@@ -250,8 +244,6 @@ func (w *world) allocWorld(id ecs.EntityID, t ecs.ComponentType) {
 	w.FG = append(w.FG, 0)
 	w.bodies = append(w.bodies, nil)
 	w.items = append(w.items, nil)
-	w.antRule = append(w.antRule, 0)
-	w.antHead = append(w.antHead, 0)
 }
 
 func (w *world) createInput(id ecs.EntityID, t ecs.ComponentType) {
@@ -284,14 +276,9 @@ func (w *world) destroyInput(id ecs.EntityID, t ecs.ComponentType) {
 	}
 }
 
-func (w *world) destroyAnt(id ecs.EntityID, t ecs.ComponentType) {
-	w.antRule[id] = 0
-	w.antHead[id] = 0
-}
-
 func (w *world) extent() point.Box {
 	var bbox point.Box
-	for it := w.Iter(ecs.All(renderMask)); it.Next(); {
+	for it := w.Iter(renderMask.All()); it.Next(); {
 		pos, _ := w.pos.Get(it.Entity())
 		bbox = bbox.ExpandTo(pos)
 	}
@@ -303,21 +290,24 @@ func (w *world) Close() error { return nil }
 const maxChargeFromResting = 4
 
 func (w *world) addPendingMove(ent ecs.Entity, move point.Point) {
-	if !ent.Type().All(wcInput) {
+	if !ent.Type().HasAll(wcInput) {
 		return // who asked you
 	}
-	w.moves.UpsertOne(mrPending, ent, ent,
-		func(rel ecs.Entity) {
-			rel.Add(movP | movN)
-			id := rel.ID()
+	// TODO better support upsert reduction
+	accum := ecs.NilEntity
+	w.moves.Upsert(
+		w.moves.Select(mrPending.All(), ecs.InA(ent.ID()), ecs.InB(ent.ID())),
+		func(uc *ecs.UpsertCursor) {
+			if accum != ecs.NilEntity {
+				if rel := uc.R(); rel.Type().HasAll(movN) {
+					w.moves.n[accum.ID()] += w.moves.n[rel.ID()]
+				}
+				return
+			}
+			id := uc.Emit(mrPending|movP|movN, ent, ent).ID()
 			w.moves.p[id] = w.moves.p[id].Add(move)
 			if n := w.moves.n[id]; n < maxChargeFromResting {
 				w.moves.n[id] = n + 1
-			}
-		},
-		func(accum, next ecs.Entity) {
-			if next.Type().All(movN) {
-				w.moves.n[accum.ID()] += w.moves.n[next.ID()]
 			}
 		})
 }
@@ -329,47 +319,48 @@ func (w *world) setMovementRange(a ecs.Entity, n int) {
 	if n > maxMovementRange {
 		n = maxMovementRange
 	}
-	w.moves.UpsertOne(mrMoveRange, a, a, func(ent ecs.Entity) {
-		ent.Add(movN)
-		w.moves.n[ent.ID()] = n
-	}, nil)
+	// TODO better support upsert reduction
+	found := false
+	w.moves.Upsert(
+		w.moves.Select(mrMoveRange.All(), ecs.InA(a.ID()), ecs.InB(a.ID())),
+		func(uc *ecs.UpsertCursor) {
+			if !found {
+				movRange := uc.Emit(mrMoveRange|movN, a, a)
+				w.moves.n[movRange.ID()] = n
+				found = true
+			}
+		})
 }
 
 func (w *world) getMovementRange(a ecs.Entity) int {
 	id := w.Deref(a)
-	for cur := w.moves.LookupA(ecs.AllRel(mrMoveRange), id); cur.Scan(); {
-		if ent := cur.Entity(); ent.Type().All(movN) {
-			if n := w.moves.n[ent.ID()]; n <= maxMovementRange {
-				return n
-			}
+	for cur := w.moves.Select((mrMoveRange | movN).All(), ecs.InA(id)); cur.Scan(); {
+		if n := w.moves.n[cur.R().ID()]; n <= maxMovementRange {
+			return n
 		}
 	}
 	return maxMovementRange
 }
 
 func (w *world) getCharge(ent ecs.Entity) (charge int) {
-	for cur := w.moves.LookupA(ecs.All(movCharge), w.Deref(ent)); cur.Scan(); {
-		charge += w.moves.n[cur.Entity().ID()]
+	for cur := w.moves.Select(movCharge.All(), ecs.InA(w.Deref(ent))); cur.Scan(); {
+		charge += w.moves.n[cur.R().ID()]
 	}
 	return charge
 }
 
 func (w *world) processRest() {
-	w.moves.UpsertMany(ecs.All(movResting), nil, func(
-		r ecs.RelationType, ent, a, b ecs.Entity,
-		emit func(r ecs.RelationType, a, b ecs.Entity) ecs.Entity,
-	) {
-		if ent == ecs.NilEntity {
+	w.moves.Upsert(w.moves.Select(movResting.All()), func(uc *ecs.UpsertCursor) {
+		if uc.R() == ecs.NilEntity {
 			return
 		}
-		n := w.moves.n[ent.ID()]
-		if a.Type().All(wcBody) && n == maxChargeFromResting {
-			n = w.heal(a, n)
+		n := w.moves.n[uc.R().ID()]
+		if uc.A().Type().HasAll(wcBody) && n == maxChargeFromResting {
+			n = w.heal(uc.A(), n)
 		}
 		if n > 0 {
-			ent = emit(mrPending, a, b)
-			ent.Add(movN)
-			w.moves.n[ent.ID()] = n
+			rel := uc.Emit(mrPending|movN, uc.A(), uc.B())
+			w.moves.n[rel.ID()] = n
 		}
 	})
 }
@@ -377,7 +368,7 @@ func (w *world) processRest() {
 func (w *world) heal(ent ecs.Entity, n int) int {
 	sum, sel := 0, ecs.NilEntity
 	bo := w.bodies[ent.ID()]
-	for it := bo.Iter(ecs.All(bcPart | bcHP)); it.Next(); {
+	for it := bo.Iter(bcHPart.All()); it.Next(); {
 		id := it.ID()
 		if dmg := bo.maxHP[id] - bo.hp[id]; dmg > 0 {
 			sum += dmg
@@ -401,37 +392,36 @@ func (w *world) heal(ent ecs.Entity, n int) int {
 
 func (w *world) applyMoves() {
 	// TODO: better resolution strategy based on connected components
-	w.moves.UpsertMany(ecs.All(movPending), nil, func(
-		r ecs.RelationType, ent, a, b ecs.Entity,
-		emit func(r ecs.RelationType, a, b ecs.Entity) ecs.Entity,
-	) {
-		if ent == ecs.NilEntity {
+	w.moves.Upsert(w.moves.Select(movPending.All()), func(uc *ecs.UpsertCursor) {
+		move := uc.R()
+		if move == ecs.NilEntity {
 			return
 		}
 
+		a, b := uc.A(), uc.B()
 		defer func() {
 			if pos, ok := w.pos.Get(a); ok {
-				items := w.pos.At(pos)
-				items = ecs.Filter(items, ecs.All(wcItem))
-				for _, item := range items {
-					emit(mrCollide|mrItem, a, item)
+				for _, item := range w.pos.At(pos) {
+					if item.Type().HasAll(wcItem) {
+						uc.Emit(mrCollide|mrItem, a, item)
+					}
 				}
 			}
 		}()
 
 		// can we actually affect a move?
-		pend, n := w.moves.p[ent.ID()], w.moves.n[ent.ID()]
-		if a.Type().All(wcBody) {
+		pend, n := w.moves.p[move.ID()], w.moves.n[move.ID()]
+		if a.Type().HasAll(wcBody) {
 			rating := w.bodies[a.ID()].movementRating()
 			pend = pend.Mul(int(moremath.Round(rating * float64(n))))
 			if pend.SumSQ() == 0 {
 				if n > 1 {
-					ent = emit(mrRest, a, b)
-					ent.Add(movN)
-					ent.Delete(movP)
-					w.moves.n[ent.ID()] = n
+					move = uc.Emit(mrRest, a, b)
+					move.Add(movN)
+					move.Delete(movP)
+					w.moves.n[move.ID()] = n
 				} else {
-					emit(r, a, b)
+					uc.Emit(move.Type(), a, b)
 				}
 				return
 			}
@@ -444,21 +434,18 @@ func (w *world) applyMoves() {
 		for ; i < n && i < limit; i++ {
 			new := pos.Add(pend.Sign())
 			var hit []ecs.Entity
-			if a.Type().All(wcCollide) {
+			if a.Type().HasAll(wcCollide) {
 				hit = w.pos.At(new)
-				hit = ecs.Filter(hit, ecs.All(wcCollide))
 			}
-			if len(hit) > 0 {
-				for _, b := range hit {
-					if b.Type().All(wcSolid) {
-						hitRel := emit(mrCollide|mrHit, a, b)
-						if m := n - i; m > 1 {
-							hitRel.Add(movN)
-							w.moves.n[hitRel.ID()] = m
-						}
-						w.pos.Set(a, pos)
-						return
+			for _, b := range hit {
+				if b.Type().HasAll(wcCollide | wcSolid) {
+					hitRel := uc.Emit(mrCollide|mrHit, a, b)
+					if m := n - i; m > 1 {
+						hitRel.Add(movN)
+						w.moves.n[hitRel.ID()] = m
 					}
+					w.pos.Set(a, pos)
+					return
 				}
 			}
 			pos = new
@@ -467,23 +454,23 @@ func (w *world) applyMoves() {
 		w.pos.Set(a, pos)
 
 		// moved without hitting anything
-		ent = emit(r, a, b)
-		w.moves.p[ent.ID()], w.moves.n[ent.ID()] = point.Zero, n
+		move = uc.Emit(move.Type(), a, b)
+		w.moves.p[move.ID()], w.moves.n[move.ID()] = point.Zero, n
 	})
 }
 
 func (bo *body) movementRating() float64 {
 	ratings := make(map[ecs.EntityID]float64, 6)
-	for it := bo.Iter(ecs.Any(bcFoot | bcCalf | bcThigh)); it.Next(); {
+	for it := bo.Iter(bcLegPart.Any()); it.Next(); {
 		rating := 1.0
 		for bo.coGT.Init(it.ID()); bo.coGT.Traverse(); {
 			id := bo.coGT.Node().ID()
 			delete(ratings, id)
 			rating *= float64(bo.hp[id]) / float64(bo.maxHP[id])
 		}
-		if it.Type().All(bcCalf) {
+		if it.Type().HasAll(bcCalf) {
 			rating *= 2 / 3
-		} else if it.Type().All(bcThigh) {
+		} else if it.Type().HasAll(bcThigh) {
 			rating *= 1 / 3
 		}
 		ratings[it.ID()] = rating
@@ -497,11 +484,11 @@ func (bo *body) movementRating() float64 {
 
 func (w *world) processCombat() {
 	// TODO: make this an upsert that transmutes hits into damage/kill relations
-	for cur := w.moves.Cursor(
-		ecs.AllRel(mrCollide|mrHit),
-		func(r ecs.RelationType, ent, a, b ecs.Entity) bool {
-			return a.Type().All(combatMask) && b.Type().All(combatMask)
-		},
+	for cur := w.moves.Select(
+		(mrCollide | mrHit).All(),
+		ecs.Filter(func(cur ecs.Cursor) bool {
+			return cur.A().Type().HasAll(combatMask) && cur.B().Type().HasAll(combatMask)
+		}),
 	); cur.Scan(); {
 		src, targ := cur.A(), cur.B()
 
@@ -512,8 +499,8 @@ func (w *world) processCombat() {
 
 		srcBo, targBo := w.bodies[src.ID()], w.bodies[targ.ID()]
 		rating := srcBo.partHPRating(aPart) / targBo.partHPRating(bPart)
-		if cur.Entity().Type().All(movN) {
-			mult := w.moves.n[cur.Entity().ID()]
+		if cur.R().Type().HasAll(movN) {
+			mult := w.moves.n[cur.R().ID()]
 			rating *= float64(mult)
 		}
 		rand := (1 + w.rng.Float64()) / 2 // like an x/2 + 1D(x/2) XXX reconsider
@@ -537,14 +524,14 @@ func (w *world) processCombat() {
 }
 
 func (w *world) findPlayer() ecs.Entity {
-	if it := w.Iter(ecs.All(playMoveMask)); it.Next() {
+	if it := w.Iter(playMoveMask.All()); it.Next() {
 		return it.Entity()
 	}
 	return ecs.NilEntity
 }
 
 func (w *world) firstSoulBody() ecs.Entity {
-	if it := w.Iter(ecs.All(wcBody | wcSoul)); it.Next() {
+	if it := w.Iter((wcBody | wcSoul).All()); it.Next() {
 		return it.Entity()
 	}
 	return ecs.NilEntity
@@ -552,36 +539,34 @@ func (w *world) firstSoulBody() ecs.Entity {
 
 func (w *world) checkOver() {
 	// count remaining souls
-	if w.Iter(ecs.All(wcSoul)).Count() == 0 {
+	if w.Iter(wcSoul.All()).Count() == 0 {
 		w.log("game over")
 		w.over = true
 	}
 }
 
 func (w *world) maybeSpawn() {
-	spawnPoints := w.Iter(ecs.All(wcSpawn))
+	spawnPoints := w.Iter(wcSpawn.All())
 	if spawnPoints.Count() == 0 {
 		return
 	}
 
 	totalAgro := 0
-	for cur := w.moves.Cursor(ecs.AllRel(mrAgro), nil); cur.Scan(); {
-		totalAgro += w.moves.n[cur.Entity().ID()]
+	for cur := w.moves.Select(mrAgro.All()); cur.Scan(); {
+		totalAgro += w.moves.n[cur.R().ID()]
 	}
 
 	totalHP, totalDmg, combatCount := 0, 0, 0
-	for it := w.Iter(ecs.All(combatMask | wcInput)); it.Next(); {
-		if !it.Type().All(wcWaiting) {
-			combatCount++
-			bo := w.bodies[it.ID()]
-			if it.Type().All(wcSoul) {
-				hp, maxHP := bo.HPRange()
-				dmg := maxHP - hp
-				totalHP += maxHP
-				totalDmg += dmg
-			} else {
-				totalHP += bo.HP()
-			}
+	for it := w.Iter(ecs.And((combatMask | wcInput).All(), wcWaiting.NotAll())); it.Next(); {
+		combatCount++
+		bo := w.bodies[it.ID()]
+		if it.Type().HasAll(wcSoul) {
+			hp, maxHP := bo.HPRange()
+			dmg := maxHP - hp
+			totalHP += maxHP
+			totalDmg += dmg
+		} else {
+			totalHP += bo.HP()
 		}
 	}
 
@@ -594,10 +579,13 @@ func (w *world) maybeSpawn() {
 	}
 
 	w.waiting.Reset()
+eachSpawnPoint:
 	for spawnPoints.Next() {
 		pos, _ := w.pos.Get(spawnPoints.Entity())
-		if len(ecs.Filter(w.pos.At(pos), ecs.All(collMask))) > 0 {
-			continue
+		for _, ent := range w.pos.At(pos) {
+			if ent.Type().HasAll(collMask) {
+				continue eachSpawnPoint
+			}
 		}
 		ent := w.nextWaiting()
 		hp := w.bodies[ent.ID()].HP()
@@ -622,7 +610,7 @@ func (w *world) nextWaiting() ecs.Entity {
 
 func soulInvolved(a, b ecs.Entity) bool {
 	// TODO: ability to say "those are soul remains"
-	return a.Type().All(wcSoul) || b.Type().All(wcSoul)
+	return a.Type().HasAll(wcSoul) || b.Type().HasAll(wcSoul)
 }
 
 func (w *world) dealAttackDamage(
@@ -644,20 +632,22 @@ func (w *world) dealAttackDamage(
 			)
 		}
 
-		// TODO: decouple damage -> agro into a separate upsert after the
+		// TODO decouple damage -> agro into a separate upsert after the
 		// damage proc; requires damage/kill relations
-		w.moves.UpsertOne(
-			mrAgro, targ, src,
-			func(ent ecs.Entity) {
-				ent.Add(movN)
-				w.moves.n[ent.ID()] += dmg
-			},
-			func(accum, next ecs.Entity) {
-				if next.Type().All(movN) {
-					w.moves.n[accum.ID()] += w.moves.n[next.ID()]
+		// TODO better support upsert reduction
+		accum := ecs.NilEntity
+		w.moves.Upsert(
+			w.moves.Select(mrAgro.All(), ecs.InA(targ.ID()), ecs.InB(src.ID())),
+			func(uc *ecs.UpsertCursor) {
+				if accum != ecs.NilEntity {
+					if next := uc.R(); next.Type().HasAll(movN) {
+						w.moves.n[accum.ID()] += w.moves.n[next.ID()]
+					}
+					return
 				}
-			},
-		)
+				accum = uc.Emit(mrAgro|movN, targ, src)
+				w.moves.n[accum.ID()] += dmg
+			})
 		return leftover, false
 	}
 
@@ -698,7 +688,7 @@ func (w *world) dealAttackDamage(
 	// 		cur.Entity())
 	// }
 
-	if bo := w.bodies[targ.ID()]; bo.Iter(ecs.All(bcPart)).Count() > 0 {
+	if bo := w.bodies[targ.ID()]; bo.Iter(bcPart.All()).Count() > 0 {
 		return leftover, false
 	}
 
@@ -729,7 +719,7 @@ func (w *world) dealAttackDamage(
 
 func (w *world) decayRemains(item ecs.Entity) {
 	rem := w.items[item.ID()].(*body)
-	for it := rem.Iter(ecs.All(bcPart | bcHP)); it.Next(); {
+	for it := rem.Iter(bcHPart.All()); it.Next(); {
 		id := it.ID()
 		rem.hp[id]--
 		if rem.hp[id] <= 0 {
@@ -746,7 +736,10 @@ func (w *world) decayRemains(item ecs.Entity) {
 }
 
 func (w *world) dirtyFloorTile(pos point.Point) (ecs.Entity, bool) {
-	for _, tile := range ecs.Filter(w.pos.At(pos), ecs.All(floorTileMask)) {
+	for _, tile := range w.pos.At(pos) {
+		if !tile.Type().HasAll(floorTileMask) {
+			continue
+		}
 		bg := w.BG[tile.ID()]
 		for i := range floorColors {
 			if floorColors[i] == bg {
@@ -876,7 +869,7 @@ func (w *world) log(mess string, args ...interface{}) {
 }
 
 func (w *world) getName(ent ecs.Entity, deflt string) string {
-	if !ent.Type().All(wcName) {
+	if !ent.Type().HasAll(wcName) {
 		return deflt
 	}
 	if w.Names[ent.ID()] == "" {
@@ -887,7 +880,7 @@ func (w *world) getName(ent ecs.Entity, deflt string) string {
 
 func (mov *moves) decayN(rel ecs.Entity) {
 	n := 0
-	if rel.Type().All(movN) {
+	if rel.Type().HasAll(movN) {
 		id := rel.ID()
 		n = mov.n[id]
 		n--
@@ -899,24 +892,26 @@ func (mov *moves) decayN(rel ecs.Entity) {
 }
 
 func (w *world) addFrustration(ent ecs.Entity, n int) {
-	w.moves.UpsertOne(mrAgro, ent, ent,
-		func(rel ecs.Entity) {
-			rel.Add(movN)
+	// TODO better support upsert reduction
+	accum := ecs.NilEntity
+	w.moves.Upsert(
+		w.moves.Select(mrAgro.All(), ecs.InA(ent.ID()), ecs.InB(ent.ID())),
+		func(uc *ecs.UpsertCursor) {
+			if accum != ecs.NilEntity {
+				if next := uc.R(); next.Type().HasAll(movN) {
+					w.moves.n[accum.ID()] += w.moves.n[next.ID()]
+				}
+				return
+			}
+			rel := uc.Emit(mrAgro|movN, ent, ent)
 			w.moves.n[rel.ID()] += n
 			w.moves.timers.Every(rel, 1, w.moves.decayN)
-		},
-		func(accum, next ecs.Entity) {
-			if next.Type().All(movN) {
-				w.moves.n[accum.ID()] += w.moves.n[next.ID()]
-			}
 		})
 }
 
 func (w *world) getFrustration(ent ecs.Entity) (n int) {
-	for cur := w.moves.LookupA(ecs.AllRel(mrAgro), w.Deref(ent)); cur.Scan(); {
-		if cur.B() == ent {
-			n += w.moves.n[cur.Entity().ID()]
-		}
+	for cur := w.moves.Select(mrAgro.All(), ecs.InA(w.Deref(ent)), ecs.InB(w.Deref(ent))); cur.Scan(); {
+		n += w.moves.n[cur.R().ID()]
 	}
 	return n
 }
@@ -936,27 +931,15 @@ func main() {
 			return nil, err
 		}
 
-		// pt := point.Point{X: 12, Y: 8}
-		// w.addBox(point.Box{TopLeft: pt.Neg(), BottomRight: pt}, '#')
+		pt := point.Point{X: 12, Y: 8}
+		w.addBox(point.Box{TopLeft: pt.Neg(), BottomRight: pt}, '#')
 
-		// w.addSpawn(0, -5)
-		// w.addSpawn(-8, 5)
-		// w.addSpawn(8, 5)
+		w.addSpawn(0, -5)
+		w.addSpawn(-8, 5)
+		w.addSpawn(8, 5)
 
 		player := w.newChar("you", 'X', wcSoul)
 		w.ui.bar.addAction(newRangeChooser(w, player))
-
-		ant := w.AddEntity(wcPosition | wcGlyph | wcAnt)
-		w.Glyphs[ant.ID()] = '*'
-		w.pos.Set(ant, point.Zero)
-		w.antRule[ant.ID()] = makeAntRule(
-			antL,
-			antR,
-			antL|antR,
-			antR,
-			antL,
-		)
-		w.antHead[ant.ID()] = 0
 
 		w.Process()
 

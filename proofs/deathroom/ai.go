@@ -11,7 +11,7 @@ const (
 )
 
 func (w *world) generateAIMoves() {
-	for it := w.Iter(ecs.All(aiMoveMask)); it.Next(); {
+	for it := w.Iter(aiMoveMask.All()); it.Next(); {
 		ai := it.Entity()
 		// TODO: if too damaged, rest
 		var move point.Point
@@ -26,14 +26,14 @@ func (w *world) generateAIMoves() {
 func (w *world) aiTarget(ai ecs.Entity) (point.Point, bool) {
 	// chase the thing we hate the most
 	opp, hate := ecs.NilEntity, 0
-	for cur := w.moves.LookupA(ecs.AllRel(mrAgro), ai.ID()); cur.Scan(); {
+	for cur := w.moves.Select(mrAgro.All(), ecs.InA(ai.ID())); cur.Scan(); {
 		if cur.B() == ai {
 			continue
 		}
-		if ent := cur.Entity(); ent.Type().All(movN) {
+		if ent := cur.R(); ent.Type().HasAll(movN) {
 			// TODO: take other factors like distance into account
 			if n := w.moves.n[ent.ID()]; n > hate {
-				if b := cur.B(); b.Type().All(combatMask) {
+				if b := cur.B(); b.Type().HasAll(combatMask) {
 					opp, hate = b, n
 				}
 			}
@@ -45,58 +45,54 @@ func (w *world) aiTarget(ai ecs.Entity) (point.Point, bool) {
 
 	// revert to our goal...
 	goalPos, found := point.Zero, false
-	w.moves.UpsertMany(
-		ecs.AllRel(mrGoal),
-		func(r ecs.RelationType, ent, a, b ecs.Entity) bool { return a == ai },
-		func(
-			r ecs.RelationType, rel, _, goal ecs.Entity,
-			emit func(r ecs.RelationType, a, b ecs.Entity,
-			) ecs.Entity) {
-			if goal == ecs.NilEntity {
-				// no goal, pick one!
-				if goal := w.chooseAIGoal(ai); goal != ecs.NilEntity {
-					emit(mrGoal, ai, goal)
-					goalPos, found = w.pos.Get(goal)
-				}
+	w.moves.Upsert(w.moves.Select(mrGoal.All(), ecs.InA(ai.ID())), func(uc *ecs.UpsertCursor) {
+		goal := uc.B()
+		if goal == ecs.NilEntity {
+			// no goal, pick one!
+			if goal := w.chooseAIGoal(ai); goal != ecs.NilEntity {
+				uc.Emit(mrGoal, ai, goal)
+				goalPos, found = w.pos.Get(goal)
+			}
+			return
+		}
+
+		if !goal.Type().HasAll(wcPosition) {
+			// no position, drop it
+			return
+		}
+
+		rel := uc.R()
+		myPos, _ := w.pos.Get(ai)
+		goalPos, _ = w.pos.Get(goal)
+		if id := rel.ID(); !rel.Type().HasAll(movN | movP) {
+			rel.Add(movN | movP)
+			w.moves.p[id] = myPos
+		} else if lastPos := w.moves.p[id]; lastPos != myPos {
+			w.moves.n[id] = 0
+			w.moves.p[id] = myPos
+		} else {
+			w.moves.n[id]++
+			if w.moves.n[id] >= 3 {
+				w.addFrustration(ai, 32)
+				// stuck trying to get that one, give up
 				return
 			}
+		}
+		found = true
 
-			if !goal.Type().All(wcPosition) {
-				// no position, drop it
-				return
-			}
+		// see if we can do better
+		alt := w.chooseAIGoal(ai)
+		score := w.scoreAIGoal(ai, goal)
+		score *= 16 // inertia bonus
+		altScore := w.scoreAIGoal(ai, alt)
+		if w.rng.Intn(score+altScore) < altScore {
+			pos, _ := w.pos.Get(alt)
+			goal, goalPos = alt, pos
+		}
 
-			myPos, _ := w.pos.Get(ai)
-			goalPos, _ = w.pos.Get(goal)
-			if id := rel.ID(); !rel.Type().All(movN | movP) {
-				rel.Add(movN | movP)
-				w.moves.p[id] = myPos
-			} else if lastPos := w.moves.p[id]; lastPos != myPos {
-				w.moves.n[id] = 0
-				w.moves.p[id] = myPos
-			} else {
-				w.moves.n[id]++
-				if w.moves.n[id] >= 3 {
-					w.addFrustration(ai, 32)
-					// stuck trying to get that one, give up
-					return
-				}
-			}
-			found = true
-
-			// see if we can do better
-			alt := w.chooseAIGoal(ai)
-			score := w.scoreAIGoal(ai, goal)
-			score *= 16 // inertia bonus
-			altScore := w.scoreAIGoal(ai, alt)
-			if w.rng.Intn(score+altScore) < altScore {
-				pos, _ := w.pos.Get(alt)
-				goal, goalPos = alt, pos
-			}
-
-			// keep or update
-			emit(mrGoal, ai, goal)
-		})
+		// keep or update
+		uc.Emit(mrGoal, ai, goal)
+	})
 
 	return goalPos, found
 }
@@ -107,7 +103,7 @@ func (w *world) scoreAIGoal(ai, goal ecs.Entity) int {
 	myPos, _ := w.pos.Get(ai)
 	goalPos, _ := w.pos.Get(goal)
 	score := goalPos.Sub(myPos).SumSQ()
-	if goal.Type().All(wcItem) {
+	if goal.Type().HasAll(wcItem) {
 		if score > itemLimit {
 			return 0
 		}
@@ -119,10 +115,7 @@ func (w *world) scoreAIGoal(ai, goal ecs.Entity) int {
 func (w *world) chooseAIGoal(ai ecs.Entity) ecs.Entity {
 	// TODO: doesn't always cause progress, get stuck on the edge sometimes
 	goal, sum := ecs.NilEntity, 0
-	for it := w.Iter(ecs.All(collMask)); it.Next(); {
-		if it.Type().All(combatMask) {
-			continue
-		}
+	for it := w.Iter(ecs.And(collMask.All(), combatMask.NotAll())); it.Next(); {
 		if score := w.scoreAIGoal(ai, it.Entity()); score > 0 {
 			sum += score
 			if sum <= 0 || w.rng.Intn(sum) < score {
@@ -136,25 +129,24 @@ func (w *world) chooseAIGoal(ai ecs.Entity) ecs.Entity {
 func (w *world) processAIItems() {
 	type ab struct{ a, b ecs.EntityID }
 	goals := make(map[ab]ecs.Entity)
-	for cur := w.moves.Cursor(
-		ecs.AllRel(mrGoal),
-		func(r ecs.RelationType, ent, a, b ecs.Entity) bool {
-			return a.Type().All(aiMoveMask)
-		},
+	for cur := w.moves.Select(
+		mrGoal.All(),
+		// TODO ecs.WhereAType(aiMoveMask)
+		ecs.Filter(func(cur ecs.Cursor) bool { return cur.A().Type().HasAll(aiMoveMask) }),
 	); cur.Scan(); {
-		goals[ab{cur.A().ID(), cur.B().ID()}] = cur.Entity()
+		goals[ab{cur.A().ID(), cur.B().ID()}] = cur.R()
 	}
 
-	for cur := w.moves.Cursor(
-		ecs.RelClause(mrCollide, mrItem|mrHit),
-		func(r ecs.RelationType, ent, a, b ecs.Entity) bool {
-			_, isGoal := goals[ab{a.ID(), b.ID()}]
+	for cur := w.moves.Select(
+		ecs.And(mrCollide.All(), (mrItem|mrHit).Any()),
+		ecs.Filter(func(cur ecs.Cursor) bool {
+			_, isGoal := goals[ab{cur.A().ID(), cur.B().ID()}]
 			return isGoal
-		},
+		}),
 	); cur.Scan(); {
 		ai, b := cur.A(), cur.B()
 
-		if b.Type().All(wcItem) {
+		if b.Type().HasAll(wcItem) {
 			// can haz?
 			if pr, ok := w.itemPrompt(prompt.Prompt{}, ai); ok {
 				w.runAIInteraction(pr, ai)

@@ -232,22 +232,22 @@ func (bs *bodySummary) build() {
 
 	bs.charge = bs.w.getCharge(bs.ent)
 
-	for it := bs.bo.Iter(ecs.All(bcPart | bcHP)); it.Next(); {
+	for it := bs.bo.Iter(bcHPart.All()); it.Next(); {
 		bs.hp += bs.bo.hp[it.ID()]
 		bs.maxHP += bs.bo.maxHP[it.ID()]
 	}
 
 	headArmor := 0
-	for it := bs.bo.Iter(ecs.All(bcPart | bcHead)); it.Next(); {
+	for it := bs.bo.Iter((bcPart | bcHead).All()); it.Next(); {
 		headArmor += bs.bo.armor[it.ID()]
 	}
 
 	torsoArmor := 0
-	for it := bs.bo.Iter(ecs.All(bcPart | bcTorso)); it.Next(); {
+	for it := bs.bo.Iter((bcPart | bcTorso).All()); it.Next(); {
 		torsoArmor += bs.bo.armor[it.ID()]
 	}
 
-	for _, part := range bs.bo.rel.Leaves(ecs.AllRel(brControl), nil) {
+	for _, part := range bs.bo.rel.Leaves(brControl.All(), nil) {
 		bs.damageParts = append(bs.damageParts, fmt.Sprintf(
 			"%v+%v",
 			bs.bo.PartAbbr(part),
@@ -287,7 +287,7 @@ func (bs bodySummary) partHPColor(part ecs.Entity) termbox.Attribute {
 		return itemColors[0]
 	}
 	id := bs.bo.Deref(part)
-	if !part.Type().All(bcPart) {
+	if !part.Type().HasAll(bcPart) {
 		return itemColors[0]
 	}
 	hp := bs.bo.hp[id]
@@ -338,7 +338,7 @@ func (bs bodySummary) Render(g view.Grid) {
 		{xo + 5, y + 4, '\\', bcCalf | bcRight},
 		{xo + 6, y + 4, '_', bcFoot | bcRight},
 	} {
-		it := bs.bo.Iter(ecs.All(bcPart | pt.t))
+		it := bs.bo.Iter((bcPart | pt.t).All())
 		if it.Next() {
 			g.Set(pt.x, pt.y, pt.ch, bs.partHPColor(it.Entity()), 0)
 		}
@@ -444,7 +444,7 @@ func (w *world) HandleKey(k view.KeyEvent) (rerr error) {
 			proc, handled = false, true
 		case '_':
 			if player != ecs.NilEntity {
-				if player.Type().All(wcCollide) {
+				if player.Type().HasAll(wcCollide) {
 					player.Delete(wcCollide)
 					w.Glyphs[player.ID()] = '~'
 				} else {
@@ -459,7 +459,7 @@ func (w *world) HandleKey(k view.KeyEvent) (rerr error) {
 	// parse player move
 	if !handled {
 		if move, ok := parseMove(k); ok {
-			for it := w.Iter(ecs.All(playMoveMask)); it.Next(); {
+			for it := w.Iter(playMoveMask.All()); it.Next(); {
 				w.addPendingMove(it.Entity(), move)
 			}
 			proc, handled = true, true
@@ -518,14 +518,16 @@ func (w *world) Render(termGrid view.Grid) error {
 		World: w.renderViewport(termGrid.Size),
 	}
 
-	hud.HeaderF(">%v souls v %v demons", w.Iter(ecs.All(wcSoul)).Count(), w.Iter(ecs.All(wcAI)).Count())
+	hud.HeaderF(">%v souls v %v demons",
+		w.Iter(wcSoul.All()).Count(),
+		w.Iter(wcAI.All()).Count())
 
 	hud.AddRenderable(&w.ui.bar, view.AlignLeft|view.AlignBottom)
 	hud.AddRenderable(&w.ui.prompt, view.AlignLeft|view.AlignBottom)
 
 	hud.AddRenderable(&w.ui.perfDash, view.AlignRight|view.AlignBottom)
 
-	for it := w.Iter(ecs.All(wcSoul | wcBody)); it.Next(); {
+	for it := w.Iter((wcSoul | wcBody).All()); it.Next(); {
 		hud.AddRenderable(makeBodySummary(w, it.Entity()),
 			view.AlignBottom|view.AlignRight|view.AlignHFlush)
 	}
@@ -540,9 +542,9 @@ func (w *world) renderViewport(max point.Point) view.Grid {
 		bbox  point.Box
 		focus point.Point
 	)
-	for it := w.Iter(ecs.All(renderMask)); it.Next(); {
+	for it := w.Iter(renderMask.All()); it.Next(); {
 		pos, _ := w.pos.Get(it.Entity())
-		if it.Type().All(wcSoul) {
+		if it.Type().HasAll(wcSoul) {
 			// TODO: centroid between all souls would be a way to move beyond
 			// "last wins"
 			focus = pos
@@ -565,7 +567,7 @@ func (w *world) renderViewport(max point.Point) view.Grid {
 	zVals := make([]uint8, len(grid.Data))
 
 	// TODO: use an pos range query
-	for it := w.Iter(ecs.Clause(wcPosition, wcGlyph|wcBG)); it.Next(); {
+	for it := w.Iter(ecs.And(wcPosition.All(), (wcGlyph | wcBG).Any())); it.Next(); {
 		pos, _ := w.pos.Get(it.Entity())
 		pos = pos.Add(offset)
 		gi := pos.Y*grid.Size.X + pos.X
@@ -574,29 +576,29 @@ func (w *world) renderViewport(max point.Point) view.Grid {
 			continue
 		}
 
-		if it.Type().All(wcGlyph) {
+		if it.Type().HasAll(wcGlyph) {
 			var fg termbox.Attribute
 			var zVal uint8
 
 			zVal = 1
 
 			// TODO: move to hp update
-			if it.Type().All(wcBody) && it.Type().Any(wcSoul|wcAI) {
+			if it.Type().HasAll(wcBody) && it.Type().HasAny(wcSoul|wcAI) {
 				zVal = 255
 				hp, maxHP := w.bodies[it.ID()].HPRange()
-				if !it.Type().All(wcSoul) {
+				if !it.Type().HasAll(wcSoul) {
 					zVal--
 					fg = safeColorsIX(aiColors, 1+(len(aiColors)-2)*hp/maxHP)
 				} else {
 					fg = safeColorsIX(soulColors, 1+(len(soulColors)-2)*hp/maxHP)
 				}
-			} else if it.Type().All(wcSoul) {
+			} else if it.Type().HasAll(wcSoul) {
 				zVal = 127
 				fg = soulColors[0]
-			} else if it.Type().All(wcAI) {
+			} else if it.Type().HasAll(wcAI) {
 				zVal = 126
 				fg = aiColors[0]
-			} else if it.Type().All(wcItem) {
+			} else if it.Type().HasAll(wcItem) {
 				zVal = 10
 				fg = itemColors[len(itemColors)-1]
 				if dur, ok := w.items[it.ID()].(durableItem); ok {
@@ -607,7 +609,7 @@ func (w *world) renderViewport(max point.Point) view.Grid {
 				}
 			} else {
 				zVal = 2
-				if it.Type().All(wcFG) {
+				if it.Type().HasAll(wcFG) {
 					fg = w.FG[it.ID()]
 				}
 			}
@@ -625,7 +627,7 @@ func (w *world) renderViewport(max point.Point) view.Grid {
 			}
 		}
 
-		if it.Type().All(wcBG) {
+		if it.Type().HasAll(wcBG) {
 			if bg := w.BG[it.ID()]; bg != 0 {
 				grid.Data[gi].Bg = bg + 1
 			}
@@ -639,9 +641,9 @@ func (w *world) itemPrompt(pr prompt.Prompt, ent ecs.Entity) (prompt.Prompt, boo
 	// TODO: once we have a proper spatial index, stop relying on
 	// collision relations for this
 	prompting := false
-	for i, cur := 0, w.moves.Cursor(
-		ecs.RelClause(mrCollide, mrItem),
-		func(r ecs.RelationType, rel, a, b ecs.Entity) bool { return a == ent },
+	for i, cur := 0, w.moves.Select(
+		(mrCollide|mrItem).All(),
+		ecs.Filter(func(cur ecs.Cursor) bool { return cur.A() == ent }),
 	); i < 9 && cur.Scan(); i++ {
 		if !prompting {
 			pr = pr.Sub("Items Here")
@@ -653,8 +655,8 @@ func (w *world) itemPrompt(pr prompt.Prompt, ent ecs.Entity) (prompt.Prompt, boo
 }
 
 func (bo *body) interact(pr prompt.Prompt, w *world, item, ent ecs.Entity) (prompt.Prompt, bool) {
-	if !ent.Type().All(wcBody) {
-		if ent.Type().All(wcSoul) {
+	if !ent.Type().HasAll(wcBody) {
+		if ent.Type().HasAll(wcSoul) {
 			w.log("you have no body!")
 		}
 		return pr, false
@@ -662,7 +664,7 @@ func (bo *body) interact(pr prompt.Prompt, w *world, item, ent ecs.Entity) (prom
 
 	pr = pr.Sub(w.getName(item, "unknown item"))
 
-	for i, it := 0, bo.Iter(ecs.All(bcPart)); i < 9 && it.Next(); i++ {
+	for i, it := 0, bo.Iter(bcPart.All()); i < 9 && it.Next(); i++ {
 		part := it.Entity()
 		rem := bodyRemains{w, bo, part, item, ent}
 		// TODO: inspect menu when more than just scavengable
