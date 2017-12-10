@@ -18,7 +18,7 @@ func TestRenderMultiRuneCell(t *testing.T) {
 	cur := Reset
 	var buf []byte
 	buf, cur = Render(buf, cur, d, Model0)
-	assert.Equal(t, []byte(whiteHand+"\r\033[1C"+whiteHand+"\033[m"), buf)
+	assert.Equal(t, []byte(whiteHand+"\r\033[1C"+whiteHand), buf)
 }
 
 func TestRenderBlankAndMultiRuneCell(t *testing.T) {
@@ -30,7 +30,7 @@ func TestRenderBlankAndMultiRuneCell(t *testing.T) {
 	cur := Reset
 	var buf []byte
 	buf, cur = Render(buf, cur, d, Model0)
-	assert.Equal(t, []byte(" "+whiteHand+"\r\033[2C \033[m"), buf)
+	assert.Equal(t, []byte(" "+whiteHand+"\r\033[2C "), buf)
 }
 
 func TestRenderBlankAndMultiRuneCellOver(t *testing.T) {
@@ -42,5 +42,5 @@ func TestRenderBlankAndMultiRuneCellOver(t *testing.T) {
 	cur := Reset
 	var buf []byte
 	buf, cur = RenderOver(buf, cur, front, back, Model0)
-	assert.Equal(t, []byte(" "+whiteHand+"\r\033[2C \033[m"), buf)
+	assert.Equal(t, []byte(" "+whiteHand+"\r\033[2C "), buf)
 }
