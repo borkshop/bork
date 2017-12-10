@@ -170,7 +170,7 @@ func (uc *UpsertCursor) Emit(er ComponentType, ea, eb Entity) Entity {
 	uc.any = true
 	rel := uc.R()
 	if rel == NilEntity {
-		return NilEntity
+		return uc.Create(er, ea, eb)
 	}
 	if er == NoType || ea == NilEntity || eb == NilEntity {
 		rel.Destroy()
