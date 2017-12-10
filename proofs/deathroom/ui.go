@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/borkshop/bork/internal/ecs"
+	"github.com/borkshop/bork/internal/input"
 	"github.com/borkshop/bork/internal/moremath"
 	"github.com/borkshop/bork/internal/perf"
 	"github.com/borkshop/bork/internal/point"
@@ -479,6 +481,13 @@ func (w *world) HandleKey(k view.KeyEvent) (rerr error) {
 }
 
 func parseMove(k view.KeyEvent) (point.Point, bool) {
+	if pt, ok := input.ParseMove(k.Ch, image.ZP); ok {
+		return point.Point(pt), ok
+	}
+	switch k.Ch {
+	case '.':
+		return point.Zero, true
+	}
 	switch k.Key {
 	case termbox.KeyArrowDown:
 		return point.Point{X: 0, Y: 1}, true
@@ -488,26 +497,6 @@ func parseMove(k view.KeyEvent) (point.Point, bool) {
 		return point.Point{X: -1, Y: 0}, true
 	case termbox.KeyArrowRight:
 		return point.Point{X: 1, Y: 0}, true
-	}
-	switch k.Ch {
-	case 'y':
-		return point.Point{X: -1, Y: -1}, true
-	case 'u':
-		return point.Point{X: 1, Y: -1}, true
-	case 'n':
-		return point.Point{X: 1, Y: 1}, true
-	case 'b':
-		return point.Point{X: -1, Y: 1}, true
-	case 'h':
-		return point.Point{X: -1, Y: 0}, true
-	case 'j':
-		return point.Point{X: 0, Y: 1}, true
-	case 'k':
-		return point.Point{X: 0, Y: -1}, true
-	case 'l':
-		return point.Point{X: 1, Y: 0}, true
-	case '.':
-		return point.Zero, true
 	}
 	return point.Zero, false
 }
