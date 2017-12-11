@@ -39,7 +39,7 @@ func run() error {
 		return err
 	}
 
-	front, back := display.New2(bounds)
+	front := display.New(bounds)
 
 	var buf []byte
 	cur := display.Start
@@ -53,7 +53,6 @@ Loop:
 
 		buf, cur = display.Render(buf, cur, front, display.Model24)
 		buf, cur = cur.Reset(buf)
-		front, back = back, front
 		os.Stdout.Write(buf)
 		buf = buf[0:0]
 
@@ -66,7 +65,6 @@ Loop:
 
 		case ' ':
 			buf, cur = cur.Clear(buf)
-			back.Clear(back.Bounds())
 		}
 
 	}
