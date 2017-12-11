@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/borkshop/bork/internal/cops/display"
-	"github.com/borkshop/bork/internal/cops/rectangle"
 	. "github.com/borkshop/bork/internal/cops/text"
+	"github.com/borkshop/bork/internal/rectangle"
 )
 
 func TestBounds(t *testing.T) {

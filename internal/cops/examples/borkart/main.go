@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/borkshop/bork/internal/cops/display"
-	"github.com/borkshop/bork/internal/cops/rectangle"
 	"github.com/borkshop/bork/internal/cops/terminal"
+	"github.com/borkshop/bork/internal/rectangle"
 	opensimplex "github.com/ojrac/opensimplex-go"
 )
 

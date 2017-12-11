@@ -8,9 +8,9 @@ import (
 	"os"
 
 	"github.com/borkshop/bork/internal/cops/display"
-	"github.com/borkshop/bork/internal/cops/rectangle"
 	"github.com/borkshop/bork/internal/cops/terminal"
 	"github.com/borkshop/bork/internal/cops/text"
+	"github.com/borkshop/bork/internal/rectangle"
 )
 
 func main() {
