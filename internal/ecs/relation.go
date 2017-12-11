@@ -126,13 +126,13 @@ func (rel *Relation) Upsert(cur Cursor, each func(*UpsertCursor)) (n, m int) {
 	uc := UpsertCursor{rel: rel, Cursor: cur}
 	if cur == nil {
 		each(&uc)
-		return uc.n, 0
-	}
-	for uc.Scan() {
-		each(&uc)
-	}
-	if uc.n == 0 {
-		each(&uc)
+	} else {
+		for uc.Scan() {
+			each(&uc)
+		}
+		if uc.n == 0 {
+			each(&uc)
+		}
 	}
 	return uc.n, m
 }
