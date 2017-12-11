@@ -151,7 +151,7 @@ type UpsertCursor struct {
 // Scan advances the underlying cursor; but first, it destroys the last scanned
 // relation if no updated record was emitted.
 func (uc *UpsertCursor) Scan() bool {
-	if uc.last != NilEntity && uc.any {
+	if uc.last != NilEntity && !uc.any {
 		uc.last.Destroy()
 	}
 	uc.any = false
