@@ -423,19 +423,17 @@ func (w *world) applyMoves() {
 		i := 0
 		for ; i < n && i < limit; i++ {
 			new := pos.Add(image.Point(pend.Sign()))
-			var hit []ecs.Entity
 			if a.Type().HasAll(wcCollide) {
-				hit = w.pos.At(new)
-			}
-			for _, b := range hit {
-				if b.Type().HasAll(wcCollide | wcSolid) {
-					hitRel := uc.Emit(mrCollide|mrHit, a, b)
-					if m := n - i; m > 1 {
-						hitRel.Add(movN)
-						w.moves.n[hitRel.ID()] = m
+				for _, b := range w.pos.At(new) {
+					if b.Type().HasAll(wcCollide | wcSolid) {
+						hitRel := uc.Emit(mrCollide|mrHit, a, b)
+						if m := n - i; m > 1 {
+							hitRel.Add(movN)
+							w.moves.n[hitRel.ID()] = m
+						}
+						w.pos.Set(a, pos)
+						return
 					}
-					w.pos.Set(a, pos)
-					return
 				}
 			}
 			pos = new
