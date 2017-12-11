@@ -117,7 +117,7 @@ func (rel *Relation) Select(opts ...CursorOpt) Cursor {
 func (rel *Relation) Upsert(cur Cursor, each func(*UpsertCursor)) (n, m int) {
 	if each == nil {
 		for cur.Scan() {
-			rel.setType(cur.R().ID(), NoType)
+			cur.R().Destroy()
 			m++
 		}
 		return n, m
