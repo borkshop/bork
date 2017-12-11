@@ -408,9 +408,7 @@ func (w *world) applyMoves() {
 			pend = pend.Mul(int(moremath.Round(rating * float64(n))))
 			if pend.SumSQ() == 0 {
 				if n > 1 {
-					move = uc.Emit(mrRest, a, b)
-					move.Add(movN)
-					move.Delete(movP)
+					move = uc.Emit(movResting, a, b)
 					w.moves.n[move.ID()] = n
 				} else {
 					uc.Emit(move.Type(), a, b)
