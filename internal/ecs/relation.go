@@ -127,10 +127,12 @@ func (rel *Relation) Upsert(cur Cursor, each func(*UpsertCursor)) (n, m int) {
 	if cur == nil {
 		each(&uc)
 	} else {
+		any := false
 		for uc.Scan() {
+			any = true
 			each(&uc)
 		}
-		if uc.n == 0 {
+		if !any {
 			each(&uc)
 		}
 	}
