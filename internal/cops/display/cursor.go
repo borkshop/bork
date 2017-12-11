@@ -119,23 +119,13 @@ func (c Cursor) Home(buf []byte) ([]byte, Cursor) {
 	return append(buf, "\033[H"...), c
 }
 
-// Go moves the cursor to another position, preferring to use relative motion,
-// using line relative if the column is unknown, using display origin relative
-// only if the line is also unknown. If the column is unknown, use "\r" to seek
-// to column 0 of the same line.
-func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
+func (c Cursor) recover(buf []byte, to image.Point) ([]byte, Cursor) {
 	if c.Position == Lost {
 		// If the cursor position is completely unknown, move relative to
 		// screen origin. This mode must be avoided to render relative to
 		// cursor position inline with a scrolling log, by setting the cursor
 		// position relative to an arbitrary origin before rendering.
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(to.Y+1), 10)
-		buf = append(buf, ";"...)
-		buf = strconv.AppendInt(buf, int64(to.X+1), 10)
-		buf = append(buf, "H"...)
-		c.Position = to
-		return buf, c
+		return c.jumpTo(buf, to)
 	}
 
 	if c.Position.X == -1 {
@@ -147,6 +137,70 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 		c.Position.X = 0
 		// Continue...
 	}
+
+	return buf, c
+}
+
+func (c Cursor) jumpTo(buf []byte, to image.Point) ([]byte, Cursor) {
+	buf = append(buf, "\033["...)
+	buf = strconv.AppendInt(buf, int64(to.Y+1), 10)
+	buf = append(buf, ";"...)
+	buf = strconv.AppendInt(buf, int64(to.X+1), 10)
+	buf = append(buf, "H"...)
+	c.Position = to
+	return buf, c
+}
+
+func (c Cursor) linedown(buf []byte, n int) ([]byte, Cursor) {
+	// Use \r\n to advance cursor Y on the chance it will advance the
+	// display bounds.
+	buf = append(buf, "\r\n"...)
+	for m := n - 1; m > 0; m-- {
+		buf = append(buf, "\n"...)
+	}
+	c.Position.X = 0
+	c.Position.Y += n
+	return buf, c
+}
+
+func (c Cursor) up(buf []byte, n int) ([]byte, Cursor) {
+	buf = append(buf, "\033["...)
+	buf = strconv.AppendInt(buf, int64(n), 10)
+	buf = append(buf, "A"...)
+	c.Position.Y -= n
+	return buf, c
+}
+
+func (c Cursor) down(buf []byte, n int) ([]byte, Cursor) {
+	buf = append(buf, "\033["...)
+	buf = strconv.AppendInt(buf, int64(n), 10)
+	buf = append(buf, "B"...)
+	c.Position.Y += n
+	return buf, c
+}
+
+func (c Cursor) left(buf []byte, n int) ([]byte, Cursor) {
+	buf = append(buf, "\033["...)
+	buf = strconv.AppendInt(buf, int64(n), 10)
+	buf = append(buf, "D"...)
+	c.Position.X -= n
+	return buf, c
+}
+
+func (c Cursor) right(buf []byte, n int) ([]byte, Cursor) {
+	buf = append(buf, "\033["...)
+	buf = strconv.AppendInt(buf, int64(n), 10)
+	buf = append(buf, "C"...)
+	c.Position.X += n
+	return buf, c
+}
+
+// Go moves the cursor to another position, preferring to use relative motion,
+// using line relative if the column is unknown, using display origin relative
+// only if the line is also unknown. If the column is unknown, use "\r" to seek
+// to column 0 of the same line.
+func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
+	buf, c = c.recover(buf, to)
 
 	if to.X == 0 && to.Y == c.Position.Y+1 {
 		buf, c = c.Reset(buf)
@@ -164,37 +218,18 @@ func (c Cursor) Go(buf []byte, to image.Point) ([]byte, Cursor) {
 		// skin tone emoji may or may not render as a single column glyph.
 	}
 
-	// DOWN
-	// Use \r\n to advance cursor Y on the chance it will advance the
-	// display bounds.
-	if to.Y > c.Position.Y {
-		buf = append(buf, "\r"...)
-		c.Position.X = 0
-	}
-	for to.Y > c.Position.Y {
-		buf = append(buf, "\n"...)
-		c.Position.Y++
+	if n := to.Y - c.Position.Y; n > 0 {
+		buf, c = c.linedown(buf, n)
+	} else if n < 0 {
+		buf, c = c.up(buf, -n)
 	}
 
-	// UP
-	if to.Y < c.Position.Y {
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(c.Position.Y-to.Y), 10)
-		buf = append(buf, "A"...)
+	if n := to.X - c.Position.X; n > 0 {
+		buf, c = c.right(buf, n)
+	} else if n < 0 {
+		buf, c = c.left(buf, -n)
 	}
 
-	// LEFT OR RIGHT
-	if to.X < c.Position.X {
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(c.Position.X-to.X), 10)
-		buf = append(buf, "D"...)
-	} else if to.X > c.Position.X {
-		buf = append(buf, "\033["...)
-		buf = strconv.AppendInt(buf, int64(to.X-c.Position.X), 10)
-		buf = append(buf, "C"...)
-	}
-
-	c.Position = to
 	return buf, c
 }
 
