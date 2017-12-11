@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	if err := Main(); err != nil {
+	if err := run(); err != nil {
 		fmt.Printf("%v\n", err)
 	}
 }
@@ -23,7 +23,7 @@ var (
 	blue  = color.RGBA{2, 50, 145, 255}
 )
 
-func Main() error {
+func run() error {
 
 	term := terminal.New(os.Stdout.Fd())
 	defer term.Restore()
@@ -105,14 +105,14 @@ Loop:
 	return nil
 }
 
-func newWorld() *World {
+func newWorld() *world {
 	noise := opensimplex.NewWithSeed(0)
-	return &World{
+	return &world{
 		noise: noise,
 	}
 }
 
-type World struct {
+type world struct {
 	noise *opensimplex.Noise
 }
 
@@ -132,22 +132,22 @@ const (
 	corner
 )
 
-func (w World) tileType(x, y int) tileType {
+func (w world) tileType(x, y int) tileType {
 	var t tileType
 	if x%hstride < wallThickness {
-		t |= 1
+		t |= horizontal
 	}
 	if y%vstride < wallThickness {
-		t |= 2
+		t |= vertical
 	}
 	return t
 }
 
-func (w World) tileAt(x, y int) (int, int) {
+func (w world) tileAt(x, y int) (int, int) {
 	return x / hstride, y / vstride
 }
 
-func (w World) colorAt(x, y int) color.Color {
+func (w world) colorAt(x, y int) color.Color {
 	rx, ry := w.tileAt(x, y)
 	at := hilbert.Encode(image.Pt(rx, ry), scale)
 
@@ -174,7 +174,7 @@ func (w World) colorAt(x, y int) color.Color {
 	return color.Gray{uint8(n*10) + (255 - 15) + o}
 }
 
-func (w World) Draw(d *display.Display, about image.Point) {
+func (w world) Draw(d *display.Display, about image.Point) {
 	// size := d.Bounds().Size()
 	// size.X /= 2
 	// rect := d.Bounds().Sub(size.Div(2))
