@@ -45,3 +45,23 @@ func Capture(r image.Rectangle, pt image.Point) image.Rectangle {
 	}
 	return r
 }
+
+// SplitHorizontal divides a rectangle into two stacked halves.
+func SplitHorizontal(r image.Rectangle) (upper, lower image.Rectangle) {
+	upper = r
+	lower = r
+	half := r.Dy() / 2
+	upper.Max.Y -= half
+	lower.Min.Y += half
+	return
+}
+
+// SplitVertical divides a rectangle into two adjacent halves.
+func SplitVertical(r image.Rectangle) (upper, lower image.Rectangle) {
+	upper = r
+	lower = r
+	half := r.Dx() / 2
+	upper.Max.X -= half
+	lower.Min.X += half
+	return
+}
