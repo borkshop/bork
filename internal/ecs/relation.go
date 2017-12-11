@@ -136,7 +136,7 @@ func (rel *Relation) Upsert(cur Cursor, each func(*UpsertCursor)) (n, m int) {
 			each(&uc)
 		}
 	}
-	return uc.n, m
+	return uc.n, uc.m
 }
 
 // UpsertCursor allows inserting, updating, and deleting relations.
@@ -145,7 +145,7 @@ type UpsertCursor struct {
 	rel  *Relation
 	last Entity
 	any  bool
-	n    int
+	n, m int
 }
 
 // Scan advances the underlying cursor; but first, it destroys the last scanned
@@ -153,6 +153,7 @@ type UpsertCursor struct {
 func (uc *UpsertCursor) Scan() bool {
 	if uc.last != NilEntity && !uc.any {
 		uc.last.Destroy()
+		uc.m++
 	}
 	uc.any = false
 	if uc.Cursor.Scan() {
@@ -176,6 +177,7 @@ func (uc *UpsertCursor) Emit(er ComponentType, ea, eb Entity) Entity {
 	}
 	if er == NoType || ea == NilEntity || eb == NilEntity {
 		rel.Destroy()
+		uc.m++
 		uc.last = NilEntity
 		return NilEntity
 	}
