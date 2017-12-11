@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 	"os"
 
 	"github.com/borkshop/bork/internal/cops/display"
@@ -106,9 +107,9 @@ type tileType int
 
 const (
 	scale         = 1 << 30
-	hstride       = 10
-	vstride       = 6
-	wallThickness = 1
+	hstride       = 21
+	vstride       = 13
+	wallThickness = 5
 )
 
 const (
@@ -119,18 +120,22 @@ const (
 )
 
 func (w world) tileType(x, y int) tileType {
+	hs := int(wallThickness + hstride + hstride/2.0*math.Sin(float64(x)/hstride/math.Pi))
+	vs := int(wallThickness + vstride + vstride/2.0*math.Sin(float64(y)/vstride/math.Pi))
 	var t tileType
-	if x%hstride < wallThickness {
+	if x%hs < wallThickness {
 		t |= horizontal
 	}
-	if y%vstride < wallThickness {
+	if y%vs < wallThickness {
 		t |= vertical
 	}
 	return t
 }
 
 func (w world) tileAt(x, y int) (int, int) {
-	return x / hstride, y / vstride
+	hs := int(wallThickness + hstride + hstride/2.0*math.Sin(float64(x)/hstride/math.Pi))
+	vs := int(wallThickness + vstride + vstride/2.0*math.Sin(float64(y)/vstride/math.Pi))
+	return x / hs, y / vs
 }
 
 func (w world) colorAt(x, y int) color.Color {
