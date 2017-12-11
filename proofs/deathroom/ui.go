@@ -629,16 +629,24 @@ func (w *world) renderViewport(max point.Point) view.Grid {
 func (w *world) itemPrompt(pr prompt.Prompt, ent ecs.Entity) (prompt.Prompt, bool) {
 	// TODO: once we have a proper spatial index, stop relying on
 	// collision relations for this
+	pos, ok := w.pos.Get(ent)
+	if !ok {
+		return pr, false
+	}
 	prompting := false
-	for i, cur := 0, w.moves.Select(
-		(mrCollide|mrItem).All(),
-		ecs.Filter(func(cur ecs.Cursor) bool { return cur.A() == ent }),
-	); i < 9 && cur.Scan(); i++ {
+	for _, pent := range w.pos.At(pos) {
+		if !pent.Type().HasAll(wcItem) {
+			continue
+		}
 		if !prompting {
 			pr = pr.Sub("Items Here")
 			prompting = true
 		}
-		worldItemAction{w, cur.B(), ent}.addAction(&pr, '1'+rune(i))
+		i := pr.Len()
+		worldItemAction{w, pent, ent}.addAction(&pr, '1'+rune(i))
+		if i >= 8 {
+			break
+		}
 	}
 	return pr, prompting
 }

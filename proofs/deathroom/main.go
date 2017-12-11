@@ -400,15 +400,6 @@ func (w *world) applyMoves() {
 		}
 
 		a, b := uc.A(), uc.B()
-		defer func() {
-			if pos, ok := w.pos.Get(a); ok {
-				for _, item := range w.pos.At(pos) {
-					if item.Type().HasAll(wcItem) {
-						uc.Emit(mrCollide|mrItem, a, item)
-					}
-				}
-			}
-		}()
 
 		// can we actually affect a move?
 		pend, n := w.moves.p[move.ID()], w.moves.n[move.ID()]
