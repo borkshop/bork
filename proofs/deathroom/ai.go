@@ -21,7 +21,7 @@ func (w *world) generateAIMoves() {
 			pos, _ := w.pos.Get(ai)
 			move = point.Sign(target.Sub(pos))
 		}
-		w.addPendingMove(ai, point.Point(move))
+		w.moves.AddPendingMove(ai, move, 1, maxRestingCharge)
 	}
 }
 
@@ -32,12 +32,10 @@ func (w *world) aiTarget(ai ecs.Entity) (image.Point, bool) {
 		if cur.B() == ai {
 			continue
 		}
-		if ent := cur.R(); ent.Type().HasAll(movN) {
-			// TODO: take other factors like distance into account
-			if n := w.moves.n[ent.ID()]; n > hate {
-				if b := cur.B(); b.Type().HasAll(combatMask) {
-					opp, hate = b, n
-				}
+		// TODO: take other factors like distance into account
+		if n := w.moves.Mag(cur.R()); n > hate {
+			if b := cur.B(); b.Type().HasAll(wcBody | wcSolid) {
+				opp, hate = b, n
 			}
 		}
 	}
@@ -63,23 +61,24 @@ func (w *world) aiTarget(ai ecs.Entity) (image.Point, bool) {
 			return
 		}
 
-		rel := uc.R()
+		move := uc.R()
 		myPos, _ := w.pos.Get(ai)
 		goalPos, _ = w.pos.Get(goal)
-		if id := rel.ID(); !rel.Type().HasAll(movN | movP) {
-			rel.Add(movN | movP)
-			w.moves.p[id] = point.Point(myPos)
-		} else if lastPos := w.moves.p[id]; lastPos != point.Point(myPos) {
-			w.moves.n[id] = 0
-			w.moves.p[id] = point.Point(myPos)
+
+		lastPos, lastPosDef := w.moves.Dir(move)
+		if !lastPosDef || !lastPos.Eq(myPos) {
+			w.moves.SetMag(move, 0)
+			w.moves.SetDir(move, myPos)
 		} else {
-			w.moves.n[id]++
-			if w.moves.n[id] >= 3 {
-				w.addFrustration(ai, 32)
+			n := w.moves.Mag(move) + 1
+			if n >= 3 {
+				w.moves.timers.Every(w.addAgro(ai, ai, 32), 1, w.moves.decayN)
 				// stuck trying to get that one, give up
 				return
 			}
+			w.moves.SetMag(move, n)
 		}
+
 		found = true
 
 		// see if we can do better
@@ -117,7 +116,7 @@ func (w *world) scoreAIGoal(ai, goal ecs.Entity) int {
 func (w *world) chooseAIGoal(ai ecs.Entity) ecs.Entity {
 	// TODO: doesn't always cause progress, get stuck on the edge sometimes
 	goal, sum := ecs.NilEntity, 0
-	for it := w.Iter(ecs.And(collMask.All(), combatMask.NotAll())); it.Next(); {
+	for it := w.Iter(ecs.And(wcSolid.All(), wcBody.NotAll())); it.Next(); {
 		if score := w.scoreAIGoal(ai, it.Entity()); score > 0 {
 			sum += score
 			if sum <= 0 || w.rng.Intn(sum) < score {
@@ -139,27 +138,24 @@ func (w *world) processAIItems() {
 		goals[ab{cur.A().ID(), cur.B().ID()}] = cur.R()
 	}
 
-	for cur := w.moves.Select(
-		ecs.And(mrCollide.All(), (mrItem|mrHit).Any()),
-		ecs.Filter(func(cur ecs.Cursor) bool {
-			_, isGoal := goals[ab{cur.A().ID(), cur.B().ID()}]
-			return isGoal
-		}),
-	); cur.Scan(); {
-		ai, b := cur.A(), cur.B()
+	for cur := w.moves.Collisions(); cur.Scan(); {
+		ai, goal := cur.A(), cur.B()
+		if _, isGoal := goals[ab{ai.ID(), goal.ID()}]; !isGoal {
+			continue
+		}
 
-		if b.Type().HasAll(wcItem) {
+		if goal.Type().HasAll(wcItem) {
 			// can haz?
 			if pr, ok := w.itemPrompt(prompt.Prompt{}, ai); ok {
 				w.runAIInteraction(pr, ai)
 			}
 			// can haz moar?
 			if pr, ok := w.itemPrompt(prompt.Prompt{}, ai); !ok || pr.Len() == 0 {
-				goals[ab{ai.ID(), b.ID()}].Destroy()
+				goals[ab{ai.ID(), goal.ID()}].Destroy()
 			}
 		} else {
 			// have booped?
-			goals[ab{ai.ID(), b.ID()}].Destroy()
+			goals[ab{ai.ID(), goal.ID()}].Destroy()
 		}
 	}
 }

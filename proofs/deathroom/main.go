@@ -26,7 +26,6 @@ const (
 	wcName ecs.ComponentType = 1 << iota
 	wcTimer
 	wcPosition
-	wcCollide
 	wcSolid
 	wcGlyph
 	wcBG
@@ -46,9 +45,7 @@ const (
 const (
 	renderMask    = wcPosition | wcGlyph
 	playMoveMask  = wcPosition | wcInput | wcSoul
-	charMask      = wcName | wcGlyph | wcBody | wcSolid
-	collMask      = wcPosition | wcCollide
-	combatMask    = wcCollide | wcBody
+	charMask      = wcName | wcGlyph | wcBody
 	floorTileMask = wcPosition | wcBG | wcFloor
 )
 
@@ -93,48 +90,22 @@ type world struct {
 }
 
 type moves struct {
-	ecs.Relation
+	eps.Moves
 	timers time.Facility
-	n      []int
-	p      []point.Point
 }
 
 const (
-	movN ecs.ComponentType = 1 << iota
-	movP
-	movT
+	movT ecs.ComponentType = 1 << (iota + eps.MaxMoveTypeBit)
 
-	mrCollide
-	mrHit
-	mrItem
 	mrGoal
 	mrAgro
-	mrPending
 	mrMoveRange
-	mrRest
-
-	movCharge  = ecs.ComponentType(mrPending) | movN
-	movPending = ecs.ComponentType(mrPending) | movN | movP
-	movResting = ecs.ComponentType(mrRest) | movN
 )
 
-func (mov *moves) init(core *ecs.Core) {
-	mov.Relation.Init(core, 0, core, 0)
+func (mov *moves) init(eps *eps.EPS) {
+	mov.Moves.Init(eps, wcSolid)
 	mov.timers.Init(&mov.Core, movT)
-	mov.n = []int{0}
-	mov.p = []point.Point{point.Zero}
-	mov.RegisterAllocator(movN|movP, mov.allocData)
-	mov.RegisterDestroyer(movN, mov.deleteN)
-	mov.RegisterDestroyer(movP, mov.deleteP)
 }
-
-func (mov *moves) allocData(id ecs.EntityID, t ecs.ComponentType) {
-	mov.n = append(mov.n, 0)
-	mov.p = append(mov.p, point.Zero)
-}
-
-func (mov *moves) deleteN(id ecs.EntityID, t ecs.ComponentType) { mov.n[id] = 0 }
-func (mov *moves) deleteP(id ecs.EntityID, t ecs.ComponentType) { mov.p[id] = point.Zero }
 
 func newWorld(v *view.View) (*world, error) {
 	// f, err := os.Create(fmt.Sprintf("%v.log", time.Now().Format(time.RFC3339)))
@@ -161,13 +132,10 @@ func (w *world) init(v *view.View) {
 	w.timers.Init(&w.Core, wcTimer)
 
 	w.Procs = append(w.Procs,
-		ecs.ProcFunc(func() {
-			w.moves.Upsert(w.moves.Select(mrCollide.Any()), nil)
-		}),
 		&w.timers,
 		&w.moves.timers,
 		ecs.ProcFunc(w.generateAIMoves), // give AI a chance!
-		ecs.ProcFunc(w.applyMoves),      // resolve moves
+		&w.moves,                        // pending moves -> collisions
 		ecs.ProcFunc(w.processAIItems),  // nom nom
 		ecs.ProcFunc(w.processCombat),   // e.g. deal damage
 		ecs.ProcFunc(w.processRest),     // healing etc
@@ -191,7 +159,8 @@ func (w *world) init(v *view.View) {
 	w.RegisterDestroyer(wcInput, w.destroyInput)
 
 	w.pos.Init(&w.Core, wcPosition)
-	w.moves.init(&w.Core) // TODO: maybe subsume into pos?
+	w.moves.init(&w.pos) // TODO: maybe subsume into pos?
+	w.moves.Moves.PreCheck = w.checkMove
 	w.waiting = w.Iter((charMask | wcWaiting).All())
 }
 
@@ -288,55 +257,31 @@ func (w *world) extent() point.Box {
 
 func (w *world) Close() error { return nil }
 
-const maxChargeFromResting = 4
+const (
+	maxRestingCharge = 4
+	maxMovementRange = 2
+)
 
-func (w *world) addPendingMove(ent ecs.Entity, move point.Point) {
-	if !ent.Type().HasAll(wcInput) {
-		return // who asked you
-	}
-	// TODO better support upsert reduction
-	accum := ecs.NilEntity
-	w.moves.Upsert(
-		w.moves.Select(mrPending.All(), ecs.InA(ent.ID()), ecs.InB(ent.ID())),
-		func(uc *ecs.UpsertCursor) {
-			if accum != ecs.NilEntity {
-				if rel := uc.R(); rel.Type().HasAll(movN) {
-					w.moves.n[accum.ID()] += w.moves.n[rel.ID()]
-				}
-				return
-			}
-			id := uc.Emit(mrPending|movP|movN, ent, ent).ID()
-			w.moves.p[id] = w.moves.p[id].Add(move)
-			if n := w.moves.n[id]; n < maxChargeFromResting {
-				w.moves.n[id] = n + 1
-			}
-		})
-}
-
-const maxMovementRange = 2
-
-func (w *world) setMovementRange(a ecs.Entity, n int) {
-	_ = w.Deref(a)
+func (w *world) setMovementRange(ent ecs.Entity, n int) {
+	id := w.Deref(ent)
 	if n > maxMovementRange {
 		n = maxMovementRange
 	}
 	// TODO better support upsert reduction
 	found := false
-	w.moves.Upsert(
-		w.moves.Select(mrMoveRange.All(), ecs.InA(a.ID()), ecs.InB(a.ID())),
-		func(uc *ecs.UpsertCursor) {
-			if !found {
-				movRange := uc.Emit(mrMoveRange|movN, a, a)
-				w.moves.n[movRange.ID()] = n
-				found = true
-			}
-		})
+	cur := w.moves.Select(mrMoveRange.All(), ecs.InA(id))
+	w.moves.Upsert(cur, func(uc *ecs.UpsertCursor) {
+		if !found {
+			w.moves.SetMag(uc.Emit(mrMoveRange, ent, ent), n)
+			found = true
+		}
+	})
 }
 
-func (w *world) getMovementRange(a ecs.Entity) int {
-	id := w.Deref(a)
-	for cur := w.moves.Select((mrMoveRange | movN).All(), ecs.InA(id)); cur.Scan(); {
-		if n := w.moves.n[cur.R().ID()]; n <= maxMovementRange {
+func (w *world) getMovementRange(ent ecs.Entity) int {
+	id := w.Deref(ent)
+	for cur := w.moves.Select(mrMoveRange.All(), ecs.InA(id)); cur.Scan(); {
+		if n := w.moves.Mag(cur.R()); n <= maxMovementRange {
 			return n
 		}
 	}
@@ -344,26 +289,18 @@ func (w *world) getMovementRange(a ecs.Entity) int {
 }
 
 func (w *world) getCharge(ent ecs.Entity) (charge int) {
-	for cur := w.moves.Select(movCharge.All(), ecs.InA(w.Deref(ent))); cur.Scan(); {
-		charge += w.moves.n[cur.R().ID()]
-	}
-	return charge
+	move := w.moves.GetPendingMove(ent)
+	return w.moves.Mag(move)
 }
 
 func (w *world) processRest() {
-	w.moves.Upsert(w.moves.Select(movResting.All()), func(uc *ecs.UpsertCursor) {
-		if uc.R() == ecs.NilEntity {
-			return
+	for cur := w.moves.Pending(); cur.Scan(); {
+		move, ent := cur.R(), cur.A()
+		if n := w.moves.Mag(move); ent.Type().HasAll(wcBody) && n >= maxRestingCharge {
+			w.moves.SetMag(move, n)
+			n = w.heal(ent, n)
 		}
-		n := w.moves.n[uc.R().ID()]
-		if uc.A().Type().HasAll(wcBody) && n == maxChargeFromResting {
-			n = w.heal(uc.A(), n)
-		}
-		if n > 0 {
-			rel := uc.Emit(mrPending|movN, uc.A(), uc.B())
-			w.moves.n[rel.ID()] = n
-		}
-	})
+	}
 }
 
 func (w *world) heal(ent ecs.Entity, n int) int {
@@ -391,60 +328,24 @@ func (w *world) heal(ent ecs.Entity, n int) int {
 	return n
 }
 
-func (w *world) applyMoves() {
-	// TODO: better resolution strategy based on connected components
-	w.moves.Upsert(w.moves.Select(movPending.All()), func(uc *ecs.UpsertCursor) {
-		move := uc.R()
-		if move == ecs.NilEntity {
-			return
-		}
-
-		a, b := uc.A(), uc.B()
-
-		// can we actually affect a move?
-		pend, n := w.moves.p[move.ID()], w.moves.n[move.ID()]
-		if a.Type().HasAll(wcBody) {
-			rating := w.bodies[a.ID()].movementRating()
-			pend = pend.Mul(int(moremath.Round(rating * float64(n))))
-			if pend.SumSQ() == 0 {
-				if n > 1 {
-					move = uc.Emit(movResting, a, b)
-					w.moves.n[move.ID()] = n
-				} else {
-					uc.Emit(move.Type(), a, b)
-				}
-				return
+func (w *world) checkMove(uc *ecs.UpsertCursor, dir image.Point, mag int) (image.Point, int, int) {
+	// discount movement magnitude due to body damage
+	ent := uc.A()
+	limit := w.getMovementRange(ent)
+	if ent.Type().HasAll(wcBody) {
+		rating := w.bodies[ent.ID()].movementRating() * float64(mag)
+		dir = image.Pt(
+			int(moremath.Round(float64(dir.X)*rating)),
+			int(moremath.Round(float64(dir.Y)*rating)),
+		)
+		if dir.Eq(image.ZP) {
+			if mag > 0 {
+				w.moves.SetMag(uc.Emit(uc.R().Type(), ent, ent), mag)
 			}
+			mag = 0
 		}
-
-		// move until we collide or exceeding lunging distance
-		limit := w.getMovementRange(a)
-		pos, _ := w.pos.Get(a)
-		i := 0
-		for ; i < n && i < limit; i++ {
-			new := pos.Add(image.Point(pend.Sign()))
-			if a.Type().HasAll(wcCollide) {
-				for _, b := range w.pos.At(new) {
-					if b.Type().HasAll(wcCollide | wcSolid) {
-						hitRel := uc.Emit(mrCollide|mrHit, a, b)
-						if m := n - i; m > 1 {
-							hitRel.Add(movN)
-							w.moves.n[hitRel.ID()] = m
-						}
-						w.pos.Set(a, pos)
-						return
-					}
-				}
-			}
-			pos = new
-		}
-		n -= i
-		w.pos.Set(a, pos)
-
-		// moved without hitting anything
-		move = uc.Emit(move.Type(), a, b)
-		w.moves.p[move.ID()], w.moves.n[move.ID()] = point.Zero, n
-	})
+	}
+	return dir, mag, limit
 }
 
 func (bo *body) movementRating() float64 {
@@ -472,13 +373,11 @@ func (bo *body) movementRating() float64 {
 
 func (w *world) processCombat() {
 	// TODO: make this an upsert that transmutes hits into damage/kill relations
-	for cur := w.moves.Select(
-		(mrCollide | mrHit).All(),
-		ecs.Filter(func(cur ecs.Cursor) bool {
-			return cur.A().Type().HasAll(combatMask) && cur.B().Type().HasAll(combatMask)
-		}),
-	); cur.Scan(); {
+	for cur := w.moves.Collisions(); cur.Scan(); {
 		src, targ := cur.A(), cur.B()
+		if !src.Type().HasAll(wcBody) || !targ.Type().HasAll(wcBody) {
+			continue
+		}
 
 		aPart, bPart := w.checkAttackHit(src, targ)
 		if aPart == ecs.NilEntity || bPart == ecs.NilEntity {
@@ -487,9 +386,8 @@ func (w *world) processCombat() {
 
 		srcBo, targBo := w.bodies[src.ID()], w.bodies[targ.ID()]
 		rating := srcBo.partHPRating(aPart) / targBo.partHPRating(bPart)
-		if cur.R().Type().HasAll(movN) {
-			mult := w.moves.n[cur.R().ID()]
-			rating *= float64(mult)
+		if n := w.moves.Mag(cur.R()); n > 0 {
+			rating *= float64(n)
 		}
 		rand := (1 + w.rng.Float64()) / 2 // like an x/2 + 1D(x/2) XXX reconsider
 		dmg := int(moremath.Round(float64(srcBo.dmg[aPart.ID()]) * rating * rand))
@@ -541,11 +439,11 @@ func (w *world) maybeSpawn() {
 
 	totalAgro := 0
 	for cur := w.moves.Select(mrAgro.All()); cur.Scan(); {
-		totalAgro += w.moves.n[cur.R().ID()]
+		totalAgro += w.moves.Mag(cur.R())
 	}
 
 	totalHP, totalDmg, combatCount := 0, 0, 0
-	for it := w.Iter(ecs.And((combatMask | wcInput).All(), wcWaiting.NotAll())); it.Next(); {
+	for it := w.Iter(ecs.And((wcSolid | wcBody | wcInput).All(), wcWaiting.NotAll())); it.Next(); {
 		combatCount++
 		bo := w.bodies[it.ID()]
 		if it.Type().HasAll(wcSoul) {
@@ -571,7 +469,7 @@ eachSpawnPoint:
 	for spawnPoints.Next() {
 		pos, _ := w.pos.Get(spawnPoints.Entity())
 		for _, ent := range w.pos.At(pos) {
-			if ent.Type().HasAll(collMask) {
+			if ent.Type().HasAll(wcSolid) {
 				continue eachSpawnPoint
 			}
 		}
@@ -580,9 +478,9 @@ eachSpawnPoint:
 		sum += hp
 		if w.rng.Intn(sum) < hp {
 			ent.Delete(wcWaiting)
-			ent.Add(wcCollide | wcInput)
+			ent.Add(wcSolid | wcInput)
 			w.pos.Set(ent, pos)
-			w.addFrustration(ent, hp)
+			w.moves.timers.Every(w.addAgro(ent, ent, hp), 1, w.moves.decayN)
 			ent = w.nextWaiting()
 		}
 	}
@@ -622,20 +520,8 @@ func (w *world) dealAttackDamage(
 
 		// TODO decouple damage -> agro into a separate upsert after the
 		// damage proc; requires damage/kill relations
-		// TODO better support upsert reduction
-		accum := ecs.NilEntity
-		w.moves.Upsert(
-			w.moves.Select(mrAgro.All(), ecs.InA(targ.ID()), ecs.InB(src.ID())),
-			func(uc *ecs.UpsertCursor) {
-				if accum != ecs.NilEntity {
-					if next := uc.R(); next.Type().HasAll(movN) {
-						w.moves.n[accum.ID()] += w.moves.n[next.ID()]
-					}
-					return
-				}
-				accum = uc.Emit(mrAgro|movN, targ, src)
-				w.moves.n[accum.ID()] += dmg
-			})
+		w.addAgro(targ, src, dmg)
+
 		return leftover, false
 	}
 
@@ -687,7 +573,7 @@ func (w *world) dealAttackDamage(
 			spi += severed.hp[head.ID()]
 		}
 		if spi > 0 {
-			targ.Delete(wcBody | wcCollide)
+			targ.Delete(wcBody | wcSolid)
 			w.Glyphs[targ.ID()] = '⟡'
 			for _, head := range heads {
 				head.Add(bcDerived)
@@ -805,7 +691,7 @@ func (w *world) addBox(box point.Box, glyph rune) {
 		{n: sz.Y, d: image.Pt(0, -1)},
 	} {
 		for i := 0; i < r.n; i++ {
-			wall := w.AddEntity(wcPosition | wcCollide | wcSolid | wcGlyph | wcBG | wcFG | wcWall)
+			wall := w.AddEntity(wcPosition | wcSolid | wcGlyph | wcBG | wcFG | wcWall)
 			w.Glyphs[wall.ID()] = glyph
 			w.pos.Set(wall, pos)
 			c, _ := wallTable.toColor(last)
@@ -824,7 +710,7 @@ func (w *world) addBox(box point.Box, glyph rune) {
 }
 
 func (w *world) newItem(pos image.Point, name string, glyph rune, val worldItem) ecs.Entity {
-	ent := w.AddEntity(wcPosition | wcCollide | wcName | wcGlyph | wcItem)
+	ent := w.AddEntity(wcPosition | wcName | wcGlyph | wcItem)
 	w.pos.Set(ent, pos)
 	w.Glyphs[ent.ID()] = glyph
 	w.Names[ent.ID()] = name
@@ -866,40 +752,34 @@ func (w *world) getName(ent ecs.Entity, deflt string) string {
 	return w.Names[ent.ID()]
 }
 
-func (mov *moves) decayN(rel ecs.Entity) {
-	n := 0
-	if rel.Type().HasAll(movN) {
-		id := rel.ID()
-		n = mov.n[id]
-		n--
-		mov.n[id] = n
-	}
-	if n <= 0 {
-		rel.Delete(movT)
+func (mov *moves) decayN(move ecs.Entity) {
+	if n := mov.Mag(move) - 1; n <= 0 {
+		mov.SetMag(move, 0)
+		move.Delete(movT)
+	} else {
+		mov.SetMag(move, n)
 	}
 }
 
-func (w *world) addFrustration(ent ecs.Entity, n int) {
+func (w *world) addAgro(a, b ecs.Entity, n int) ecs.Entity {
 	// TODO better support upsert reduction
 	accum := ecs.NilEntity
 	w.moves.Upsert(
-		w.moves.Select(mrAgro.All(), ecs.InA(ent.ID()), ecs.InB(ent.ID())),
+		w.moves.Select(mrAgro.All(), ecs.InA(a.ID()), ecs.InB(b.ID())),
 		func(uc *ecs.UpsertCursor) {
-			if accum != ecs.NilEntity {
-				if next := uc.R(); next.Type().HasAll(movN) {
-					w.moves.n[accum.ID()] += w.moves.n[next.ID()]
-				}
-				return
+			if accum == ecs.NilEntity {
+				accum = uc.Emit(mrAgro, a, b)
+			} else {
+				n += w.moves.Mag(uc.R())
 			}
-			rel := uc.Emit(mrAgro|movN, ent, ent)
-			w.moves.n[rel.ID()] += n
-			w.moves.timers.Every(rel, 1, w.moves.decayN)
+			w.moves.SetMag(accum, n)
 		})
+	return accum
 }
 
-func (w *world) getFrustration(ent ecs.Entity) (n int) {
-	for cur := w.moves.Select(mrAgro.All(), ecs.InA(w.Deref(ent)), ecs.InB(w.Deref(ent))); cur.Scan(); {
-		n += w.moves.n[cur.R().ID()]
+func (w *world) getAgro(a, b ecs.Entity) (n int) {
+	for cur := w.moves.Select(mrAgro.All(), ecs.InA(w.Deref(a)), ecs.InB(w.Deref(b))); cur.Scan(); {
+		n += w.moves.Mag(cur.R())
 	}
 	return n
 }
