@@ -212,7 +212,11 @@ func RenderOver(buf []byte, cur Cursor, over, under *Display, renderColor ColorM
 			if dy := pt.Y - cur.Position.Y; dy > 0 {
 				buf, cur = cur.linedown(buf, dy)
 			}
-			if dx := pt.X - cur.Position.X; dx > 0 {
+			if cur.Position.X < 0 {
+				buf = append(buf, "\r"...)
+				cur.Position.X = 0
+				buf, cur = cur.right(buf, pt.X)
+			} else if dx := pt.X - cur.Position.X; dx > 0 {
 				buf, cur = cur.right(buf, dx)
 			}
 			buf, cur = renderColor(buf, cur, of, ob)
