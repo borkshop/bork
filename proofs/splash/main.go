@@ -102,9 +102,10 @@ func splash(d *display.Display) {
 	msgbox = rectangle.MiddleCenter(text.Bounds(msg), borkline)
 	text.Write(d, msgbox, msg, yellow)
 
-	parkingbox := image.Rect(0, 0, 8, 2)
+	parkingbox := image.Rect(0, 0, 9, 2)
 
 	lower.Min.X--
+	lower.Min.Y += 2
 	parking := display.New(parkingbox)
 	text.Write(parking, parkingbox, "──┬──\n  │  ", yellow)
 	for x := lower.Min.X; x < lower.Max.X; x += parkingbox.Max.X {
@@ -127,12 +128,12 @@ func splash(d *display.Display) {
 }
 
 func car() string {
-	switch rand.Intn(4) {
-	case 0:
+	switch rand.Intn(10) {
+	case 0, 1:
 		return "🚙"
-	case 1:
+	case 2, 3:
 		return "🚗"
-	case 2:
+	case 4:
 		return "🚕"
 	default:
 		return ""
