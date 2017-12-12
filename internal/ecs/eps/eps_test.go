@@ -1,12 +1,12 @@
 package eps_test
 
 import (
+	"image"
 	"sort"
 	"testing"
 
 	"github.com/borkshop/bork/internal/ecs"
 	"github.com/borkshop/bork/internal/ecs/eps"
-	"github.com/borkshop/bork/internal/point"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -65,7 +65,7 @@ func (tps *tps) load(xx ...interface{}) {
 		i++
 		y := xx[i].(int)
 		i++
-		tps.pos.Set(ent, point.Pt(x, y))
+		tps.pos.Set(ent, image.Pt(x, y))
 	}
 }
 
@@ -94,7 +94,7 @@ func TestEPS(t *testing.T) {
 			{"X", 0, 0, false},
 		} {
 			if pos, ok := tps.pos.Get(tps.nomed(tc.nom)); assert.Equal(t, tc.ok, ok, "[%v] ok", i) {
-				assert.Equal(t, point.Pt(tc.x, tc.y), pos, "[%v] pos", i)
+				assert.Equal(t, image.Pt(tc.x, tc.y), pos, "[%v] pos", i)
 			}
 		}
 	})
@@ -114,15 +114,15 @@ func TestEPS(t *testing.T) {
 			{0, 1, nil},
 			{1, 1, []string{"c"}},
 		} {
-			ents := tps.pos.At(point.Pt(tc.x, tc.y))
+			ents := tps.pos.At(image.Pt(tc.x, tc.y))
 			noms := tps.noms(ents)
 			sort.Strings(noms)
 			assert.Equal(t, tc.noms, noms, "[%v] noms", i)
 		}
 	})
 
-	tps.pos.Set(tps.nomed("a"), point.Pt(1, 1))
-	tps.pos.Set(tps.nomed("b"), point.Pt(-1, 1))
+	tps.pos.Set(tps.nomed("a"), image.Pt(1, 1))
+	tps.pos.Set(tps.nomed("b"), image.Pt(-1, 1))
 
 	t.Run("At moved", func(t *testing.T) {
 		for i, tc := range []struct {
@@ -134,7 +134,7 @@ func TestEPS(t *testing.T) {
 			{-1, 1, []string{"b", "d"}},
 			{1, 1, []string{"a", "c"}},
 		} {
-			ents := tps.pos.At(point.Pt(tc.x, tc.y))
+			ents := tps.pos.At(image.Pt(tc.x, tc.y))
 			noms := tps.noms(ents)
 			sort.Strings(noms)
 			assert.Equal(t, tc.noms, noms, "[%v] noms", i)
@@ -152,7 +152,7 @@ func TestEPS(t *testing.T) {
 			{-1, 1, []string{"b"}},
 			{1, 1, []string{"a"}},
 		} {
-			ents := tps.pos.At(point.Pt(tc.x, tc.y))
+			ents := tps.pos.At(image.Pt(tc.x, tc.y))
 			noms := tps.noms(ents)
 			sort.Strings(noms)
 			assert.Equal(t, tc.noms, noms, "[%v] noms", i)
@@ -160,7 +160,7 @@ func TestEPS(t *testing.T) {
 	})
 
 	tps.load("e", 9, 9)
-	tps.pos.Set(tps.nomed("a"), point.Pt(9, 9))
+	tps.pos.Set(tps.nomed("a"), image.Pt(9, 9))
 
 	t.Run("At re-use", func(t *testing.T) {
 		for i, tc := range []struct {
@@ -169,7 +169,7 @@ func TestEPS(t *testing.T) {
 		}{
 			{9, 9, []string{"a", "e"}},
 		} {
-			ents := tps.pos.At(point.Pt(tc.x, tc.y))
+			ents := tps.pos.At(image.Pt(tc.x, tc.y))
 			noms := tps.noms(ents)
 			sort.Strings(noms)
 			assert.Equal(t, tc.noms, noms, "[%v] noms", i)

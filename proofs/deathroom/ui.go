@@ -529,7 +529,7 @@ func (w *world) renderViewport(max point.Point) view.Grid {
 	// collect world extent, and compute a viewport focus position
 	var (
 		bbox  point.Box
-		focus point.Point
+		focus image.Point
 	)
 	for it := w.Iter(renderMask.All()); it.Next(); {
 		pos, _ := w.pos.Get(it.Entity())
@@ -538,12 +538,12 @@ func (w *world) renderViewport(max point.Point) view.Grid {
 			// "last wins"
 			focus = pos
 		}
-		bbox = bbox.ExpandTo(pos)
+		bbox = bbox.ExpandTo(point.Point(pos))
 	}
 
 	// center clamped grid around focus
-	offset := bbox.TopLeft.Add(bbox.Size().Div(2)).Sub(focus)
-	ofbox := bbox.Add(offset)
+	offset := image.Point(bbox.TopLeft.Add(bbox.Size().Div(2))).Sub(focus)
+	ofbox := bbox.Add(point.Point(offset))
 	if ofbox.TopLeft.X < 0 {
 		offset.X -= ofbox.TopLeft.X
 	}

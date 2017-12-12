@@ -1,12 +1,12 @@
 package eps
 
 import (
+	"image"
 	"log"
 	"math"
 	"sort"
 
 	"github.com/borkshop/bork/internal/ecs"
-	"github.com/borkshop/bork/internal/point"
 )
 
 // TODO support movement on top of or within an EPS:
@@ -22,7 +22,7 @@ type EPS struct {
 
 	resEnts []ecs.Entity
 	inval   int
-	pt      []point.Point
+	pt      []image.Point
 	ix      index
 }
 
@@ -45,9 +45,9 @@ func (eps *EPS) Init(core *ecs.Core, t ecs.ComponentType) {
 
 // Get the position of an entity; the bool argument is true only if
 // the entity actually has a position.
-func (eps *EPS) Get(ent ecs.Entity) (point.Point, bool) {
+func (eps *EPS) Get(ent ecs.Entity) (image.Point, bool) {
 	if ent == ecs.NilEntity {
-		return point.Zero, false
+		return image.ZP, false
 	}
 	id := eps.core.Deref(ent)
 	return eps.pt[id-1], eps.ix.flg[id-1]&epsDef != 0
@@ -55,7 +55,7 @@ func (eps *EPS) Get(ent ecs.Entity) (point.Point, bool) {
 
 // Set the position of an entity, adding the eps's component if
 // necessary.
-func (eps *EPS) Set(ent ecs.Entity, pt point.Point) {
+func (eps *EPS) Set(ent ecs.Entity, pt image.Point) {
 	id := eps.core.Deref(ent)
 	if eps.ix.flg[id-1]&epsDef == 0 {
 		ent.Add(eps.t)
@@ -71,8 +71,8 @@ func (eps *EPS) Set(ent ecs.Entity, pt point.Point) {
 // At returns a slice of entities at a given point; NOTE the slice is not safe
 // to retain long term, and MAY be re-used by the next call to EPS.At.
 //
-// TODO: provide a struct that localizes that sharing.
-func (eps *EPS) At(pt point.Point) []ecs.Entity {
+// TODO provide a struct that localizes that sharing.
+func (eps *EPS) At(pt image.Point) []ecs.Entity {
 	if eps.inval > 0 {
 		eps.reindex()
 	}
@@ -94,12 +94,12 @@ func (eps *EPS) At(pt point.Point) []ecs.Entity {
 }
 
 // TODO: NN queries, range queries, etc
-// func (eps *EPS) Near(pt point.Point, d uint) []ecs.Entity
-// func (eps *EPS) Within(box point.Box) []ecs.Entity
+// func (eps *EPS) Near(pt image.Point, d uint) []ecs.Entity
+// func (eps *EPS) Within(box image.Rectangle) []ecs.Entity
 
 func (eps *EPS) alloc(id ecs.EntityID, t ecs.ComponentType) {
 	i := len(eps.pt)
-	eps.pt = append(eps.pt, point.Zero)
+	eps.pt = append(eps.pt, image.ZP)
 	eps.ix.flg = append(eps.ix.flg, 0)
 	eps.ix.key = append(eps.ix.key, 0)
 	eps.ix.ix = append(eps.ix.ix, i)
@@ -115,7 +115,7 @@ func (eps *EPS) create(id ecs.EntityID, t ecs.ComponentType) {
 }
 
 func (eps *EPS) destroy(id ecs.EntityID, t ecs.ComponentType) {
-	eps.pt[id-1] = point.Zero
+	eps.pt[id-1] = image.ZP
 	eps.ix.flg[id-1] &^= epsDef
 	eps.ix.key[id-1] = 0
 	if flg := eps.ix.flg[id-1]; flg&epsInval == 0 {
@@ -258,7 +258,7 @@ func (ix index) searchRun(key uint64) (i, m int) {
 }
 
 // TODO: evaluate hilbert instead of z-order
-func zorderKey(pt point.Point) (z uint64) {
+func zorderKey(pt image.Point) (z uint64) {
 	// TODO: evaluate a table ala
 	// https://graphics.stanford.edu/~seander/bithacks.html#InterleaveTableObvious
 	x, y := truncInt32(pt.X), truncInt32(pt.Y)

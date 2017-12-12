@@ -1,6 +1,8 @@
 package main
 
 import (
+	"image"
+
 	"github.com/borkshop/bork/internal/ecs"
 	"github.com/borkshop/bork/internal/point"
 	"github.com/borkshop/bork/internal/view/hud/prompt"
@@ -14,16 +16,16 @@ func (w *world) generateAIMoves() {
 	for it := w.Iter(aiMoveMask.All()); it.Next(); {
 		ai := it.Entity()
 		// TODO: if too damaged, rest
-		var move point.Point
+		var move image.Point
 		if target, found := w.aiTarget(ai); found {
 			pos, _ := w.pos.Get(ai)
-			move = target.Sub(pos).Sign()
+			move = point.Sign(target.Sub(pos))
 		}
-		w.addPendingMove(ai, move)
+		w.addPendingMove(ai, point.Point(move))
 	}
 }
 
-func (w *world) aiTarget(ai ecs.Entity) (point.Point, bool) {
+func (w *world) aiTarget(ai ecs.Entity) (image.Point, bool) {
 	// chase the thing we hate the most
 	opp, hate := ecs.NilEntity, 0
 	for cur := w.moves.Select(mrAgro.All(), ecs.InA(ai.ID())); cur.Scan(); {
@@ -44,7 +46,7 @@ func (w *world) aiTarget(ai ecs.Entity) (point.Point, bool) {
 	}
 
 	// revert to our goal...
-	goalPos, found := point.Zero, false
+	goalPos, found := image.ZP, false
 	w.moves.Upsert(w.moves.Select(mrGoal.All(), ecs.InA(ai.ID())), func(uc *ecs.UpsertCursor) {
 		goal := uc.B()
 		if goal == ecs.NilEntity {
@@ -66,10 +68,10 @@ func (w *world) aiTarget(ai ecs.Entity) (point.Point, bool) {
 		goalPos, _ = w.pos.Get(goal)
 		if id := rel.ID(); !rel.Type().HasAll(movN | movP) {
 			rel.Add(movN | movP)
-			w.moves.p[id] = myPos
-		} else if lastPos := w.moves.p[id]; lastPos != myPos {
+			w.moves.p[id] = point.Point(myPos)
+		} else if lastPos := w.moves.p[id]; lastPos != point.Point(myPos) {
 			w.moves.n[id] = 0
-			w.moves.p[id] = myPos
+			w.moves.p[id] = point.Point(myPos)
 		} else {
 			w.moves.n[id]++
 			if w.moves.n[id] >= 3 {
@@ -102,7 +104,7 @@ func (w *world) scoreAIGoal(ai, goal ecs.Entity) int {
 
 	myPos, _ := w.pos.Get(ai)
 	goalPos, _ := w.pos.Get(goal)
-	score := goalPos.Sub(myPos).SumSQ()
+	score := point.SumSQ(goalPos.Sub(myPos))
 	if goal.Type().HasAll(wcItem) {
 		if score > itemLimit {
 			return 0
