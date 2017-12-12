@@ -446,11 +446,11 @@ func (w *world) HandleKey(k view.KeyEvent) (rerr error) {
 			proc, handled = false, true
 		case '_':
 			if player != ecs.NilEntity {
-				if player.Type().HasAll(wcCollide) {
-					player.Delete(wcCollide)
+				if player.Type().HasAll(wcSolid) {
+					player.Delete(wcSolid)
 					w.Glyphs[player.ID()] = '~'
 				} else {
-					player.Add(wcCollide)
+					player.Add(wcSolid)
 					w.Glyphs[player.ID()] = 'X'
 				}
 			}
@@ -462,7 +462,7 @@ func (w *world) HandleKey(k view.KeyEvent) (rerr error) {
 	if !handled {
 		if move, ok := parseMove(k); ok {
 			for it := w.Iter(playMoveMask.All()); it.Next(); {
-				w.addPendingMove(it.Entity(), move)
+				w.moves.AddPendingMove(it.Entity(), move, 1, maxRestingCharge)
 			}
 			proc, handled = true, true
 		}
@@ -480,25 +480,25 @@ func (w *world) HandleKey(k view.KeyEvent) (rerr error) {
 	return nil
 }
 
-func parseMove(k view.KeyEvent) (point.Point, bool) {
+func parseMove(k view.KeyEvent) (image.Point, bool) {
 	if pt, ok := input.ParseMove(k.Ch, image.ZP); ok {
-		return point.Point(pt), ok
+		return pt, ok
 	}
 	switch k.Ch {
 	case '.':
-		return point.Zero, true
+		return image.ZP, true
 	}
 	switch k.Key {
 	case termbox.KeyArrowDown:
-		return point.Point{X: 0, Y: 1}, true
+		return image.Pt(0, 1), true
 	case termbox.KeyArrowUp:
-		return point.Point{X: 0, Y: -1}, true
+		return image.Pt(0, -1), true
 	case termbox.KeyArrowLeft:
-		return point.Point{X: -1, Y: 0}, true
+		return image.Pt(-1, 0), true
 	case termbox.KeyArrowRight:
-		return point.Point{X: 1, Y: 0}, true
+		return image.Pt(1, 0), true
 	}
-	return point.Zero, false
+	return image.ZP, false
 }
 
 func (w *world) Render(termGrid view.Grid) error {
