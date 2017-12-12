@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"log"
 	"math/rand"
 	"os"
@@ -280,7 +281,7 @@ func (w *world) extent() point.Box {
 	var bbox point.Box
 	for it := w.Iter(renderMask.All()); it.Next(); {
 		pos, _ := w.pos.Get(it.Entity())
-		bbox = bbox.ExpandTo(pos)
+		bbox = bbox.ExpandTo(point.Point(pos))
 	}
 	return bbox
 }
@@ -432,7 +433,7 @@ func (w *world) applyMoves() {
 		pos, _ := w.pos.Get(a)
 		i := 0
 		for ; i < n && i < limit; i++ {
-			new := pos.Add(pend.Sign())
+			new := pos.Add(image.Point(pend.Sign()))
 			var hit []ecs.Entity
 			if a.Type().HasAll(wcCollide) {
 				hit = w.pos.At(new)
@@ -735,7 +736,7 @@ func (w *world) decayRemains(item ecs.Entity) {
 	}
 }
 
-func (w *world) dirtyFloorTile(pos point.Point) (ecs.Entity, bool) {
+func (w *world) dirtyFloorTile(pos image.Point) (ecs.Entity, bool) {
 	for _, tile := range w.pos.At(pos) {
 		if !tile.Type().HasAll(floorTileMask) {
 			continue
@@ -806,15 +807,15 @@ func (w *world) chooseAttackedPart(ent ecs.Entity) ecs.Entity {
 
 func (w *world) addBox(box point.Box, glyph rune) {
 	// TODO: the box should be an entity, rather than each cell
-	last, sz, pos := wallTable.Ref(1), box.Size(), box.TopLeft
+	last, sz, pos := wallTable.Ref(1), box.Size(), image.Point(box.TopLeft)
 	for _, r := range []struct {
 		n int
-		d point.Point
+		d image.Point
 	}{
-		{n: sz.X, d: point.Point{X: 1}},
-		{n: sz.Y, d: point.Point{Y: 1}},
-		{n: sz.X, d: point.Point{X: -1}},
-		{n: sz.Y, d: point.Point{Y: -1}},
+		{n: sz.X, d: image.Pt(1, 0)},
+		{n: sz.Y, d: image.Pt(0, 1)},
+		{n: sz.X, d: image.Pt(-1, 0)},
+		{n: sz.Y, d: image.Pt(0, -1)},
 	} {
 		for i := 0; i < r.n; i++ {
 			wall := w.AddEntity(wcPosition | wcCollide | wcSolid | wcGlyph | wcBG | wcFG | wcWall)
@@ -830,12 +831,12 @@ func (w *world) addBox(box point.Box, glyph rune) {
 
 	floorTable.genTile(w.rng, box, func(pos point.Point, bg termbox.Attribute) {
 		floor := w.AddEntity(wcPosition | wcBG | wcFloor)
-		w.pos.Set(floor, pos)
+		w.pos.Set(floor, image.Point(pos))
 		w.BG[floor.ID()] = bg
 	})
 }
 
-func (w *world) newItem(pos point.Point, name string, glyph rune, val worldItem) ecs.Entity {
+func (w *world) newItem(pos image.Point, name string, glyph rune, val worldItem) ecs.Entity {
 	ent := w.AddEntity(wcPosition | wcCollide | wcName | wcGlyph | wcItem)
 	w.pos.Set(ent, pos)
 	w.Glyphs[ent.ID()] = glyph
@@ -918,7 +919,7 @@ func (w *world) getFrustration(ent ecs.Entity) (n int) {
 
 func (w *world) addSpawn(x, y int) ecs.Entity {
 	spawn := w.AddEntity(wcPosition | wcGlyph | wcFG | wcSpawn)
-	w.pos.Set(spawn, point.Pt(x, y))
+	w.pos.Set(spawn, image.Pt(x, y))
 	w.Glyphs[spawn.ID()] = '✖' // ×
 	w.FG[spawn.ID()] = 54
 	return spawn
