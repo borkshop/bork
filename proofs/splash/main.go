@@ -11,6 +11,7 @@ import (
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/terminal"
 	"github.com/borkshop/bork/internal/cops/text"
+	"github.com/borkshop/bork/internal/input"
 	"github.com/borkshop/bork/internal/rectangle"
 )
 
@@ -47,6 +48,9 @@ func run() error {
 	buf, cur = cur.Clear(buf)
 	buf, cur = cur.Hide(buf)
 
+	commands, mute := input.Channel(os.Stdin)
+	defer mute()
+
 Loop:
 	for {
 		splash(front)
@@ -56,15 +60,15 @@ Loop:
 		os.Stdout.Write(buf)
 		buf = buf[0:0]
 
-		var rbuf [1]byte
-		os.Stdin.Read(rbuf[0:1])
-
-		switch rbuf[0] {
-		case 'q':
-			break Loop
-
-		case ' ':
-			buf, cur = cur.Clear(buf)
+		select {
+		case command := <-commands:
+			switch c := command.(type) {
+			case rune:
+				switch c {
+				case 'q':
+					break Loop
+				}
+			}
 		}
 
 	}

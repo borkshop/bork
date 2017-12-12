@@ -9,6 +9,8 @@ import (
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/terminal"
 	"github.com/borkshop/bork/internal/hilbert"
+	"github.com/borkshop/bork/internal/input"
+	"github.com/borkshop/bork/internal/point"
 	opensimplex "github.com/ojrac/opensimplex-go"
 )
 
@@ -36,7 +38,7 @@ func run() error {
 
 	world := newWorld()
 
-	front := display.New(bounds)
+	dis := display.New(bounds)
 
 	var buf []byte
 	cur := display.Start
@@ -44,44 +46,33 @@ func run() error {
 	buf, cur = cur.Clear(buf)
 	buf, cur = cur.Hide(buf)
 
+	commands, mute := input.Channel(os.Stdin)
+	defer mute()
+
 	var at image.Point
 
 Loop:
 	for {
-		world.Draw(front, at)
+		world.Draw(dis, at)
 
-		buf, cur = display.Render(buf, cur, front, display.Model24)
+		buf, cur = display.Render(buf, cur, dis, display.Model24)
 		buf, cur = cur.Reset(buf)
 		os.Stdout.Write(buf)
 		buf = buf[0:0]
 
-		var rbuf [1]byte
-		os.Stdin.Read(rbuf[0:1])
-
-		switch rbuf[0] {
-		case 'q':
-			break Loop
-
-		case 'j':
-			at.Y++
-		case 'k':
-			at.Y--
-		case 'h':
-			at.X--
-		case 'l':
-			at.X++
-
-		case 'J':
-			at.Y += bounds.Dy()
-		case 'K':
-			at.Y -= bounds.Dy()
-		case 'H':
-			at.X -= bounds.Dx()
-		case 'L':
-			at.X += bounds.Dx()
-
-		case ' ':
-			buf, cur = cur.Clear(buf)
+		select {
+		case command := <-commands:
+			switch c := command.(type) {
+			case input.Move:
+				at = at.Add(image.Point(c))
+			case input.ShiftMove:
+				at = at.Add(point.MulRespective(image.Point(c), bounds.Size()))
+			case rune:
+				switch c {
+				case 'q':
+					break Loop
+				}
+			}
 		}
 
 		if at.X < 0 {
