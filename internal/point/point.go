@@ -1,5 +1,9 @@
 package point
 
+import (
+	"github.com/borkshop/bork/internal/moremath"
+)
+
 // Pt is a convenience constructor for Point.
 func Pt(x, y int) Point { return Point{x, y} }
 
@@ -94,8 +98,8 @@ func (pt Point) Neg() Point {
 // Sign returns a copy of this point reduced to the values -1, 0, or 1 depending
 // on the sign of the original values.
 func (pt Point) Sign() Point {
-	pt.X = sign(pt.X)
-	pt.Y = sign(pt.Y)
+	pt.X = moremath.IntSign(pt.X)
+	pt.Y = moremath.IntSign(pt.Y)
 	return pt
 }
 
@@ -107,14 +111,4 @@ func (pt Point) Dot(other Point) int {
 // SumSQ returns the sum-of-squared components.
 func (pt Point) SumSQ() int {
 	return pt.X*pt.X + pt.Y*pt.Y
-}
-
-func sign(i int) int {
-	if i < 0 {
-		return -1
-	}
-	if i > 0 {
-		return 1
-	}
-	return 0
 }

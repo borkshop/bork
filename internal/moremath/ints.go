@@ -23,3 +23,15 @@ func MaxInt(ints ...int) int {
 	}
 	return max
 }
+
+// IntSign returns -1, 1, or 0 if n is less than, greater
+// than, or equal to 0 respectively.
+func IntSign(n int) int {
+	if n < 0 {
+		return -1
+	}
+	if n > 0 {
+		return 1
+	}
+	return 0
+}
