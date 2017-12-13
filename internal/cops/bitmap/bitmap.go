@@ -41,7 +41,7 @@ func (b *Bitmap) Bounds() image.Rectangle {
 
 // Set sets the color at a point.
 func (b *Bitmap) Set(x, y int, c color.Color) {
-	b.BitSet(x, y, color.Model(b.Palette).Convert(c) != b.Palette[0])
+	b.SetBit(x, y, color.Model(b.Palette).Convert(c) != b.Palette[0])
 }
 
 // ColorModel returns the bitmap's palette.
@@ -63,8 +63,8 @@ func (b *Bitmap) BitAt(x, y int) bool {
 	return byt&(1<<uint(k&07)) != 0
 }
 
-// BitSet sets or resets the bit at a point.
-func (b *Bitmap) BitSet(x, y int, bit bool) {
+// SetBit sets or resets the bit at a point.
+func (b *Bitmap) SetBit(x, y int, bit bool) {
 	if !image.Pt(x, y).In(b.Rect) {
 		return
 	}

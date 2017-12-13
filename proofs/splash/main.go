@@ -7,12 +7,18 @@ import (
 	"image/draw"
 	"math/rand"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/borkshop/bork/internal/cops/bitmap"
+	"github.com/borkshop/bork/internal/cops/braille"
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/terminal"
 	"github.com/borkshop/bork/internal/cops/text"
 	"github.com/borkshop/bork/internal/input"
 	"github.com/borkshop/bork/internal/rectangle"
+	opensimplex "github.com/ojrac/opensimplex-go"
 )
 
 func main() {
@@ -35,42 +41,56 @@ func run() error {
 	defer term.Restore()
 	term.SetRaw()
 
-	bounds, err := term.Bounds()
-	if err != nil {
-		return err
-	}
-
-	front := display.New(bounds)
-
-	var buf []byte
-	cur := display.Start
-	buf, cur = cur.Home(buf)
-	buf, cur = cur.Clear(buf)
-	buf, cur = cur.Hide(buf)
-
 	commands, mute := input.Channel(os.Stdin)
 	defer mute()
 
+	cur := display.Start
+	var buf []byte
+
+	ticker := time.NewTicker(time.Second / 60)
+
+	sigwinch := make(chan os.Signal)
+	signal.Notify(sigwinch, syscall.SIGWINCH)
+
 Loop:
 	for {
-		splash(front)
 
-		buf, cur = display.Render(buf, cur, front, display.Model24)
-		buf, cur = cur.Reset(buf)
-		os.Stdout.Write(buf)
-		buf = buf[0:0]
+		cur = display.Start
+		buf, cur = cur.Home(buf)
+		buf, cur = cur.Clear(buf)
+		buf, cur = cur.Hide(buf)
 
-		select {
-		case command := <-commands:
-			switch c := command.(type) {
-			case rune:
-				switch c {
-				case 'q':
-					break Loop
+		bounds, err := term.Bounds()
+		if err != nil {
+			return err
+		}
+
+		front := display.New(bounds)
+
+	Animation:
+		for {
+			splash(front, int(time.Now().UnixNano()/100000000))
+
+			buf, cur = display.Render(buf, cur, front, display.Model24)
+			buf, cur = cur.Reset(buf)
+			os.Stdout.Write(buf)
+			buf = buf[0:0]
+
+			select {
+			case <-ticker.C:
+				continue Animation
+			case <-sigwinch:
+				continue Loop
+			case command := <-commands:
+				switch c := command.(type) {
+				case rune:
+					switch c {
+					case 'q':
+						break Loop
+					}
 				}
 			}
 		}
-
 	}
 
 	buf, cur = cur.Home(buf)
@@ -81,17 +101,22 @@ Loop:
 	return nil
 }
 
-func splash(d *display.Display) {
+func splash(d *display.Display, t int) {
+	const borkHeight = 4
 
 	bounds := d.Bounds()
 
 	upper, lower := rectangle.SplitHorizontal(bounds)
 
 	bork := upper
-	bork.Min.Y = upper.Max.Y - 4
+	bork.Min.Y = upper.Max.Y - borkHeight
 	d.Fill(upper, " ", smog, smog)
 	d.Fill(lower, " ", asphalt, asphalt)
 	d.Fill(bork, " ", blue, blue)
+
+	skybox := upper
+	skybox.Max.Y -= borkHeight
+	fillClouds(d, skybox, t)
 
 	borkline := bork
 	borkline.Max.Y = borkline.Min.Y + 1
@@ -129,6 +154,23 @@ func splash(d *display.Display) {
 			display.Draw(d, at, parking, image.ZP, draw.Over)
 		}
 	}
+}
+
+func fillClouds(d *display.Display, sky image.Rectangle, t int) {
+	r := braille.Bounds(sky)
+	img := bitmap.New(r, white, blue)
+	a := opensimplex.NewWithSeed(0)
+	b := opensimplex.NewWithSeed(100)
+	c := opensimplex.NewWithSeed(200)
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		for x := r.Min.X; x < r.Max.X; x++ {
+			if a.Eval2(float64(x+t*2)/40.0, float64(y)/10.0)+c.Eval2(float64(x), float64(y)) > 0 &&
+				b.Eval2(float64(x+t/2)/80.0, float64(y)/20.0)+c.Eval2(float64(x), float64(y)) > 0 {
+				img.SetBit(x, y, true)
+			}
+		}
+	}
+	braille.DrawBitmap(d, sky, img, image.ZP, blue)
 }
 
 func car() string {
