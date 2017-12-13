@@ -37,7 +37,11 @@ func run() (rerr error) {
 		}
 	}()
 
-	commands, mute := input.Channel(os.Stdin)
+	commands, mute := input.Channel(os.Stdin,
+		input.RecognizeViKeys,
+		input.RecognizeShiftedViKeys,
+	)
+
 	defer mute()
 
 	sigwinch := make(chan os.Signal)
@@ -61,10 +65,15 @@ Loop:
 			}
 		case command := <-commands:
 			switch c := command.(type) {
-			case input.Move:
-				at = at.Add(image.Point(c))
-			case input.ShiftMove:
-				at = at.Add(point.MulRespective(image.Point(c), term.Display.Rect.Size()))
+			case input.RelativeMove:
+				pt := c.Point
+				if c.Multipier > 1 {
+					// NOTE multiples of view port are probably not useful, so
+					// we ignore the actual value
+					pt = point.MulRespective(pt, bounds.Size())
+				}
+				at = at.Add(pt)
+
 			case rune:
 				switch c {
 				case 'q':
