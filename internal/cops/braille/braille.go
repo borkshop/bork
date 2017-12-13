@@ -59,16 +59,21 @@ func Draw(dst *display.Display, r image.Rectangle, src image.Image, sp image.Poi
 	}
 
 	bits := bitmap.NewPaletted(src, off, on)
+	DrawBitmap(dst, r, bits, sp, on)
+}
+
+// DrawBitmap
+func DrawBitmap(dst *display.Display, r image.Rectangle, src BitmapReader, sp image.Point, fg color.Color) {
 	w, h := r.Dx(), r.Dy()
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			pt := image.Pt(x*3, y*6).Add(sp)
 			dx := r.Min.X + x
 			dy := r.Min.Y + y
-			br := At(bits, pt)
+			br := At(src, pt)
 			if br != "" {
 				dst.Text.Set(dx, dy, br)
-				dst.Foreground.Set(dx, dy, on)
+				dst.Foreground.Set(dx, dy, fg)
 			}
 		}
 	}
