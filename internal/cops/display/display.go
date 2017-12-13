@@ -13,9 +13,11 @@
 package display
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
+	"unicode/utf8"
 
 	"github.com/borkshop/bork/internal/cops/textile"
 )
@@ -205,4 +207,86 @@ func (d *Display) rgbaati(i int) (t string, f, b color.RGBA) {
 // Bounds returns the bounding rectangle of the display.
 func (d *Display) Bounds() image.Rectangle {
 	return d.Rect
+}
+
+func unpackColor(c color.Color) (rgba color.RGBA, ok bool) {
+	if c != nil {
+		r, g, b, a := c.RGBA()
+		rgba.R = uint8(r >> 8)
+		rgba.G = uint8(g >> 8)
+		rgba.B = uint8(b >> 8)
+		rgba.A = uint8(a >> 8)
+		ok = true
+	}
+	return rgba, ok
+}
+
+// WriteString writes a string into the display at the given position,
+// returning how many cells were affected.
+//
+// NOTE does not support multi-rune glyphs
+func (d *Display) WriteString(x, y int, f, b color.Color, mess string, args ...interface{}) int {
+	fRGBA, haveF := unpackColor(f)
+	bRGBA, haveB := unpackColor(b)
+	if len(args) > 0 {
+		mess = fmt.Sprintf(mess, args...)
+	}
+	i := d.Text.StringsOffset(x, y)
+	j := i
+	for dx := d.Rect.Dx(); len(mess) > 0 && x < dx; x, j = x+1, j+1 {
+		_, n := utf8.DecodeRuneInString(mess)
+		d.Text.Strings[j] = mess[:n]
+		mess = mess[n:]
+		k := j * 4
+		if haveF {
+			d.Foreground.Pix[k] = fRGBA.R
+			d.Foreground.Pix[k+1] = fRGBA.G
+			d.Foreground.Pix[k+2] = fRGBA.B
+			d.Foreground.Pix[k+3] = fRGBA.A
+		}
+		if haveB {
+			d.Background.Pix[k] = bRGBA.R
+			d.Background.Pix[k+1] = bRGBA.G
+			d.Background.Pix[k+2] = bRGBA.B
+			d.Background.Pix[k+3] = bRGBA.A
+		}
+	}
+	return j - i
+}
+
+// WriteStringRTL is like WriteString except it goes Right-To-Left (in both the
+// string and the diplay).
+//
+// NOTE does not support multi-rune glyphs
+func (d *Display) WriteStringRTL(x, y int, f, b color.Color, mess string, args ...interface{}) int {
+	fRGBA, haveF := unpackColor(f)
+	bRGBA, haveB := unpackColor(b)
+	if len(args) > 0 {
+		mess = fmt.Sprintf(mess, args...)
+	}
+	if x > d.Rect.Max.X {
+		x = d.Rect.Max.X - 1
+	}
+	i := d.Text.StringsOffset(x, y)
+	j := i
+	for ; len(mess) > 0 && x >= 0; x, j = x-1, j-1 {
+		_, n := utf8.DecodeLastRuneInString(mess)
+		m := len(mess) - n
+		d.Text.Strings[j] = mess[m:]
+		mess = mess[:m]
+		k := j * 4
+		if haveF {
+			d.Foreground.Pix[k] = fRGBA.R
+			d.Foreground.Pix[k+1] = fRGBA.G
+			d.Foreground.Pix[k+2] = fRGBA.B
+			d.Foreground.Pix[k+3] = fRGBA.A
+		}
+		if haveB {
+			d.Background.Pix[k] = bRGBA.R
+			d.Background.Pix[k+1] = bRGBA.G
+			d.Background.Pix[k+2] = bRGBA.B
+			d.Background.Pix[k+3] = bRGBA.A
+		}
+	}
+	return i - j
 }
