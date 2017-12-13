@@ -107,9 +107,7 @@ func (pt Point) Dot(other Point) int {
 }
 
 // SumSQ returns the sum-of-squared components.
-func (pt Point) SumSQ() int {
-	return pt.X*pt.X + pt.Y*pt.Y
-}
+func (pt Point) SumSQ() int { return SumSQ(image.Point(pt)) }
 
 // Sign returns a copy of the point reduced to the values -1, 0, or 1 depending
 // on the sign of the original values.
@@ -117,4 +115,9 @@ func Sign(pt image.Point) image.Point {
 	pt.X = moremath.IntSign(pt.X)
 	pt.Y = moremath.IntSign(pt.Y)
 	return pt
+}
+
+// SumSQ returns the sum of squared-components of a given point.
+func SumSQ(pt image.Point) int {
+	return pt.X*pt.X + pt.Y*pt.Y
 }
