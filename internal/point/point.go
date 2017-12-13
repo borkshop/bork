@@ -1,6 +1,8 @@
 package point
 
 import (
+	"image"
+
 	"github.com/borkshop/bork/internal/moremath"
 )
 
@@ -97,11 +99,7 @@ func (pt Point) Neg() Point {
 
 // Sign returns a copy of this point reduced to the values -1, 0, or 1 depending
 // on the sign of the original values.
-func (pt Point) Sign() Point {
-	pt.X = moremath.IntSign(pt.X)
-	pt.Y = moremath.IntSign(pt.Y)
-	return pt
-}
+func (pt Point) Sign() Point { return Point(Sign(image.Point(pt))) }
 
 // Dot return the dot product of this point with another.
 func (pt Point) Dot(other Point) int {
@@ -111,4 +109,12 @@ func (pt Point) Dot(other Point) int {
 // SumSQ returns the sum-of-squared components.
 func (pt Point) SumSQ() int {
 	return pt.X*pt.X + pt.Y*pt.Y
+}
+
+// Sign returns a copy of the point reduced to the values -1, 0, or 1 depending
+// on the sign of the original values.
+func Sign(pt image.Point) image.Point {
+	pt.X = moremath.IntSign(pt.X)
+	pt.Y = moremath.IntSign(pt.Y)
+	return pt
 }
