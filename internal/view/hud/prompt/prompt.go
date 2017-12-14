@@ -2,12 +2,12 @@ package prompt
 
 import (
 	"fmt"
+	"image"
 	"unicode/utf8"
 
+	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/moremath"
-	"github.com/borkshop/bork/internal/point"
 	"github.com/borkshop/bork/internal/view"
-	termbox "github.com/nsf/termbox-go"
 )
 
 // Prompt represents a set of actions that the user may select from. Each
@@ -46,7 +46,6 @@ type promptAction struct {
 const (
 	headerOverhead = 1
 	headerFmt      = "%s:"
-	exitRune       = '0'
 	exitLeftMess   = "0) Exit Menu"
 	exitRightMess  = "Exit Menu (0"
 	actionOverhead = 3
@@ -64,7 +63,7 @@ func (act promptAction) renderActionRight() string {
 
 // RenderSize calculates how much space the prompt could use and how much it
 // needs. TODO: not yet paginated.
-func (pr *Prompt) RenderSize() (wanted, needed point.Point) {
+func (pr *Prompt) RenderSize() (wanted, needed image.Point) {
 	if len(pr.action) == 0 {
 		return
 	}
@@ -96,56 +95,55 @@ func (pr *Prompt) RenderSize() (wanted, needed point.Point) {
 }
 
 // Render the prompt within the given space.
-func (pr *Prompt) Render(g view.Grid) {
-	i, y := 0, 0
+func (pr *Prompt) Render(d *display.Display) {
+	y := d.Rect.Min.Y
 	if pr.mess != "" {
-		g.WriteString(0, y, headerFmt, pr.mess)
+		d.WriteString(0, y, nil, nil, headerFmt, pr.mess)
 		y++
 	}
-	for ; y < g.Size.Y && i < len(pr.action); y, i = y+1, i+1 {
+	for i := 0; y < d.Rect.Max.Y && i < len(pr.action); y, i = y+1, i+1 {
 		act := pr.action[i]
 		if pr.align&view.AlignCenter == view.AlignRight {
-			g.WriteStringRTL(g.Size.X-1, y, act.renderActionRight())
+			d.WriteStringRTL(d.Rect.Max.X-1, y, nil, nil, act.renderActionRight())
 		} else {
-			g.WriteString(0, y, act.renderActionLeft())
+			d.WriteString(0, y, nil, nil, act.renderActionLeft())
 		}
 	}
 	if pr.align&view.AlignCenter == view.AlignRight {
-		g.WriteStringRTL(g.Size.X-1, y, exitRightMess)
+		d.WriteStringRTL(d.Rect.Max.X-1, y, nil, nil, exitRightMess)
 	} else {
-		g.WriteString(0, y, exitLeftMess)
+		d.WriteString(0, y, nil, nil, exitLeftMess)
 	}
-	// if i < len(pr.action) TODO: paginate
+	// TODO: paginate
 }
 
 // Handle a key event, returning: whether the event was handled, if the prompt
 // was canceled, and whether more user input is required (to take semantically
 // take an action).
-func (pr *Prompt) Handle(k view.KeyEvent) (handled, canceled, required bool) {
+func (pr *Prompt) Handle(cmd interface{}) (handled, canceled, required bool) {
 	if len(pr.action) == 0 {
 		return false, false, false
 	}
 
-	if k.Key == termbox.KeyEsc {
-		*pr = pr.Unwind()
-		return true, true, false
-	}
-
-	if k.Ch == exitRune {
-		*pr = pr.Pop()
-		return true, true, false
-	}
-
-	// TODO: pagination support
-
-	if k.Ch != 0 {
+	switch c := cmd.(type) {
+	case rune:
+		switch c {
+		case '':
+			*pr = pr.Unwind()
+			return true, true, false
+		case '0':
+			*pr = pr.Pop()
+			return true, true, false
+		}
 		for i := range pr.action {
-			if k.Ch == pr.action[i].ch {
+			if c == pr.action[i].ch {
 				*pr, required = pr.action[i].run.RunPrompt(*pr)
 				return true, false, required
 			}
 		}
 	}
+
+	// TODO: pagination support
 
 	return false, false, true
 }

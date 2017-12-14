@@ -1,14 +1,21 @@
 package view_test
 
 import (
+	"image"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/borkshop/bork/internal/point"
+	"github.com/borkshop/bork/internal/cops/display"
 	. "github.com/borkshop/bork/internal/view"
 )
+
+func makeDis(x, y int) func() *display.Display {
+	return func() *display.Display {
+		return display.New(image.Rect(0, 0, x, y))
+	}
+}
 
 func TestLayout(t *testing.T) {
 	type sa struct {
@@ -17,15 +24,13 @@ func TestLayout(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name     string
-		init     func() Grid
+		init     func() *display.Display
 		sas      []sa
 		expected []string
 	}{
 		{
 			name: "basic top left",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"left1", AlignTop | AlignLeft},
 				{"left2", AlignTop | AlignLeft},
@@ -47,9 +52,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic top right",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"right1", AlignTop | AlignRight},
 				{"rrright4", AlignTop | AlignRight},
@@ -72,9 +75,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic top left&right",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"left1", AlignTop | AlignLeft},
 				{"left2", AlignTop | AlignLeft},
@@ -100,9 +101,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic top left&right&center",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"left1", AlignTop | AlignLeft},
 				{"left2", AlignTop | AlignLeft},
@@ -129,9 +128,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic bottom left",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"left4", AlignBottom | AlignLeft},
 				{"left5", AlignBottom | AlignLeft},
@@ -153,9 +150,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic bottom right",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"right4", AlignBottom | AlignRight},
 				{"right5", AlignBottom | AlignRight},
@@ -177,9 +172,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic bottom left&right",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"left4", AlignBottom | AlignLeft},
 				{"left5", AlignBottom | AlignLeft},
@@ -204,9 +197,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic bottom left&right&center",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"left4", AlignBottom | AlignLeft},
 				{"left5", AlignBottom | AlignLeft},
@@ -234,9 +225,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic middle left",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"left7", AlignMiddle | AlignLeft},
 				{"left8", AlignMiddle | AlignLeft},
@@ -258,9 +247,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic middle right",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"right7", AlignMiddle | AlignRight},
 				{"right8", AlignMiddle | AlignRight},
@@ -282,9 +269,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic middle left&right",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"left7", AlignMiddle | AlignLeft},
 				{"left8", AlignMiddle | AlignLeft},
@@ -309,9 +294,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic middle left&right&center",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"left7", AlignMiddle | AlignLeft},
 				{"left8", AlignMiddle | AlignLeft},
@@ -337,9 +320,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "basic full-up",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 25, Y: 10})
-			},
+			init: makeDis(25, 10),
 			sas: []sa{
 				{"left1", AlignTop | AlignLeft},
 				{"left2", AlignTop | AlignLeft},
@@ -380,9 +361,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "multi-line top left",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 35, Y: 15})
-			},
+			init: makeDis(35, 15),
 			sas: []sa{
 				{lshaped('a', 1, 2, 3), AlignTop | AlignLeft},
 			},
@@ -407,9 +386,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "multi-line top right",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 35, Y: 15})
-			},
+			init: makeDis(35, 15),
 			sas: []sa{
 				{rshaped('b', 2, 3, 1), AlignTop | AlignRight},
 			},
@@ -434,9 +411,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "multi-line bottom left",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 35, Y: 15})
-			},
+			init: makeDis(35, 15),
 			sas: []sa{
 				{lshaped('c', 3, 2, 1), AlignBottom | AlignLeft},
 			},
@@ -461,9 +436,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "multi-line bottom right",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 35, Y: 15})
-			},
+			init: makeDis(35, 15),
 			sas: []sa{
 				{rshaped('d', 2, 1, 3), AlignBottom | AlignRight},
 			},
@@ -488,9 +461,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "multi-line middle center",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 35, Y: 15})
-			},
+			init: makeDis(35, 15),
 			sas: []sa{
 				{lshaped('e', 3, 5, 8, 5, 3), AlignMiddle | AlignCenter},
 			},
@@ -517,9 +488,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "multi-line full-up",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 35, Y: 15})
-			},
+			init: makeDis(35, 15),
 			sas: []sa{
 				{lshaped('a', 1, 2, 3), AlignTop | AlignLeft},
 				{rshaped('b', 2, 3, 1), AlignTop | AlignRight},
@@ -550,9 +519,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "single over wanted",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 16, Y: 6})
-			},
+			init: makeDis(16, 6),
 			sas: []sa{
 				{overWant(lshaped('a', 3, 2, 1), 2, 0), AlignTop | AlignLeft},
 			},
@@ -568,9 +535,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "single over needed",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 16, Y: 6})
-			},
+			init: makeDis(16, 6),
 			sas: []sa{
 				{overNeed(lshaped('a', 3, 2, 1), 2, 0), AlignTop | AlignLeft},
 			},
@@ -586,9 +551,7 @@ func TestLayout(t *testing.T) {
 
 		{
 			name: "over wanted&needed w/company",
-			init: func() Grid {
-				return MakeGrid(point.Point{X: 16, Y: 6})
-			},
+			init: makeDis(16, 6),
 			sas: []sa{
 				{lshaped('a', 3, 2, 1), AlignTop | AlignLeft},
 				{overWant(lshaped('b', 3, 2, 1), 2, 0), AlignTop | AlignLeft},
@@ -606,7 +569,7 @@ func TestLayout(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			lay := Layout{}
-			lay.Grid = tc.init()
+			lay.Display = tc.init()
 			for _, sa := range tc.sas {
 				switch v := sa.x.(type) {
 				case Renderable:
@@ -615,7 +578,7 @@ func TestLayout(t *testing.T) {
 					lay.Render(RenderString(v), sa.a)
 				}
 			}
-			assert.Equal(t, tc.expected, lay.Grid.Lines(' '))
+			assert.Equal(t, tc.expected, lay.Display.Lines(" "))
 		})
 	}
 }
@@ -629,7 +592,7 @@ type shape struct {
 func lshaped(r rune, ns ...int) Renderable { return shape{r, ns, AlignLeft} }
 func rshaped(r rune, ns ...int) Renderable { return shape{r, ns, AlignRight} }
 
-func (sh shape) RenderSize() (wanted, needed point.Point) {
+func (sh shape) RenderSize() (wanted, needed image.Point) {
 	needed.Y = len(sh.ns)
 	for _, n := range sh.ns {
 		if n > needed.X {
@@ -639,30 +602,30 @@ func (sh shape) RenderSize() (wanted, needed point.Point) {
 	return needed, needed
 }
 
-func (sh shape) Render(g Grid) {
+func (sh shape) Render(d *display.Display) {
 	for y, n := range sh.ns {
 		switch s := strings.Repeat(string(sh.r), n); sh.a {
 		case AlignRight:
-			g.WriteStringRTL(g.Size.X-1, y, s)
+			d.WriteStringRTL(d.Rect.Max.X-1, y, nil, nil, s)
 
 		default: // AlignLeft:
-			g.WriteString(0, y, s)
+			d.WriteString(0, y, nil, nil, s)
 		}
 	}
 }
 
-func overWant(ren Renderable, x, y int) Renderable { return overSize{ren, point.Zero, point.Pt(x, y)} }
-func overNeed(ren Renderable, x, y int) Renderable { return overSize{ren, point.Pt(x, y), point.Zero} }
-func overWantNeed(ren Renderable, wanted, needed point.Point) Renderable {
+func overWant(ren Renderable, x, y int) Renderable { return overSize{ren, image.ZP, image.Pt(x, y)} }
+func overNeed(ren Renderable, x, y int) Renderable { return overSize{ren, image.Pt(x, y), image.ZP} }
+func overWantNeed(ren Renderable, wanted, needed image.Point) Renderable {
 	return overSize{ren, wanted, needed}
 }
 
 type overSize struct {
 	Renderable
-	wanted, needed point.Point
+	wanted, needed image.Point
 }
 
-func (over overSize) RenderSize() (wanted, needed point.Point) {
+func (over overSize) RenderSize() (wanted, needed image.Point) {
 	wanted, needed = over.Renderable.RenderSize()
 	wanted = wanted.Add(over.wanted)
 	needed = needed.Add(over.needed)

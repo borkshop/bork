@@ -2,19 +2,18 @@ package view
 
 import (
 	"fmt"
+	"image"
 
-	termbox "github.com/nsf/termbox-go"
-
+	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/moremath"
-	"github.com/borkshop/bork/internal/point"
 )
 
-// Layout places Renderables in a Grid, keeping track of used left/right/center
-// space to inform future placements.
+// Layout places Renderables in a cops Display, keeping track of used
+// left/right/center space to inform future placements.
 type Layout struct {
-	Grid
+	*display.Display
 
-	// invariant: avail[i] == Grid.Size.X - lused[i] - rused[i]
+	// invariant: avail[i] == Display.Rect.Dx() - lused[i] - rused[i]
 	lused []int
 	rused []int
 	cused []int
@@ -78,26 +77,28 @@ func (a Align) String() string {
 }
 
 // Renderable is an element for Layout to place and maybe render; if its Render
-// method is called, it will get a grid of at least the needed RenderSize.
+// method is called, it will get a Display of at least the needed RenderSize.
 type Renderable interface {
-	RenderSize() (wanted, needed point.Point)
-	Render(Grid)
+	RenderSize() (wanted, needed image.Point)
+	Render(*display.Display)
 }
 
 func (lay *Layout) init() {
-	n := lay.Grid.Size.Y
+	n := lay.Display.Rect.Dy()
 	if cap(lay.avail) < n {
 		lay.lused = make([]int, n)
 		lay.rused = make([]int, n)
 		lay.cused = make([]int, n)
 		lay.avail = make([]int, n)
-	} else {
+	} else if len(lay.avail) != n {
 		lay.lused = lay.lused[:n]
 		lay.rused = lay.rused[:n]
 		lay.cused = lay.cused[:n]
 		lay.avail = lay.avail[:n]
+	} else {
+		return
 	}
-	n = lay.Grid.Size.X
+	n = lay.Display.Rect.Dx()
 	for i := range lay.avail {
 		lay.avail[i] = n
 	}
@@ -109,21 +110,19 @@ type LayoutPlacement struct {
 
 	ren    Renderable
 	align  Align
-	wanted point.Point
-	needed point.Point
-	sep    termbox.Cell // TODO: give user an option
+	wanted image.Point
+	needed image.Point
+	sep    string // TODO: give user an option; support fg/bg
 
 	ok    bool
 	start int
-	have  point.Point
+	have  image.Point
 }
 
 // Place a Renderable into layout, returning false if the placement can't be
 // done.
 func (lay *Layout) Place(ren Renderable, align Align) LayoutPlacement {
-	if len(lay.avail) != lay.Grid.Size.Y {
-		lay.init()
-	}
+	lay.init()
 	plc := MakeLayoutPlacement(lay, ren)
 	plc.Try(align)
 	return plc
@@ -145,12 +144,12 @@ func MakeLayoutPlacement(lay *Layout, ren Renderable) LayoutPlacement {
 		ren: ren,
 	}
 	plc.wanted, plc.needed = ren.RenderSize()
-	plc.setSep(' ')
+	plc.setSep(" ")
 	return plc
 }
 
-func (plc *LayoutPlacement) setSep(ch rune) {
-	plc.sep = termbox.Cell{Ch: ch}
+func (plc *LayoutPlacement) setSep(s string) {
+	plc.sep = s
 }
 
 // Try attempts to (re)resolve the placement with an other alignment.
@@ -205,10 +204,10 @@ func (plc *LayoutPlacement) find(init, dir int) {
 	plc.start = init
 seekStart:
 	needed := 0
-	plc.have = point.Zero
+	plc.have = image.ZP
 	for plc.start >= 0 && plc.start < len(plc.lay.avail) {
 		needed = plc.needed.X
-		if plc.sep.Ch != 0 && ((left && plc.lay.lused[plc.start] > 0) ||
+		if plc.sep != "" && ((left && plc.lay.lused[plc.start] > 0) ||
 			(right && plc.lay.rused[plc.start] > 0)) {
 			needed++
 		}
@@ -278,19 +277,20 @@ func (plc *LayoutPlacement) Render() {
 		if delta == 0 {
 			plc.align |= AlignHFlush
 		}
-		off = plc.lay.Grid.Size.X - plc.have.X - delta
+		off = plc.lay.Display.Rect.Dx() - plc.have.X - delta
 		used = plc.lay.rused
 
 	default: // NOTE: defaults to AlignCenter:
 		lused := moremath.MaxInt(plc.lay.lused[plc.start : plc.start+plc.have.Y]...)
 		rused := moremath.MaxInt(plc.lay.rused[plc.start : plc.start+plc.have.Y]...)
-		off = lused + (plc.lay.Grid.Size.X-plc.have.X-lused-rused)/2
+		off = lused + (plc.lay.Display.Rect.Dx()-plc.have.X-lused-rused)/2
 		used = plc.lay.cused
 	}
 
-	grid := MakeGrid(plc.have)
-	plc.ren.Render(grid)
-	plc.copy(grid, off)
+	// TODO render into a sub-display
+	d := display.New(image.Rectangle{Max: plc.have})
+	plc.ren.Render(d)
+	plc.copy(d, off)
 	delta += plc.have.X
 
 	for y, i := plc.start, 0; i < plc.have.Y; y, i = y+1, i+1 {
@@ -299,7 +299,7 @@ func (plc *LayoutPlacement) Render() {
 	}
 }
 
-func (plc *LayoutPlacement) copy(g Grid, off int) {
+func (plc *LayoutPlacement) copy(d *display.Display, off int) {
 	var (
 		left   = plc.align&AlignCenter == AlignLeft
 		right  = plc.align&AlignCenter == AlignRight
@@ -307,12 +307,13 @@ func (plc *LayoutPlacement) copy(g Grid, off int) {
 		lflush = plc.align&AlignHFlush != 0 && left
 		rflush = plc.align&AlignHFlush != 0 && right
 		pad    = plc.sep
-		paded  point.Point
+		paded  image.Point
 	)
 
-	bound := trim(g)
+	bound := trim(d)
 
-	if dx := moremath.MaxInt(0, g.Size.X-bound.BottomRight.X) + bound.TopLeft.X; dx > 0 {
+	// shift alignment offset for trimmed space
+	if dx := moremath.MaxInt(0, d.Rect.Dx()-bound.Dx()); dx > 0 {
 		if right {
 			off += dx
 		} else if center {
@@ -321,39 +322,56 @@ func (plc *LayoutPlacement) copy(g Grid, off int) {
 	}
 
 	// pad left
-	if pad.Ch != 0 {
+	if pad != "" {
 		if left && !lflush {
-			for ly, gy := plc.start, bound.TopLeft.Y; gy < bound.BottomRight.Y; ly, gy = ly+1, gy+1 {
-				li := ly*plc.lay.Grid.Size.X + off
-				plc.lay.Grid.Data[li] = pad
+			for ly, gy := plc.start, bound.Min.Y; gy < bound.Max.Y; ly, gy = ly+1, gy+1 {
+				li := plc.lay.Display.Text.StringsOffset(plc.lay.Display.Rect.Min.X+off, ly)
+				plc.lay.Display.Text.Strings[li] = pad
 			}
 			off++
 			paded.X++
-			pad.Ch = 0
+			pad = ""
 		} else if right && !rflush {
 			off--
 		} else {
-			pad.Ch = 0
+			pad = ""
 		}
 	}
 
 	// actual copy
-	for ly, gy := plc.start, bound.TopLeft.Y; gy < bound.BottomRight.Y; ly, gy = ly+1, gy+1 {
-		li := ly*plc.lay.Grid.Size.X + off
-		gi := gy*g.Size.X + bound.TopLeft.X
-		for gx := bound.TopLeft.X; gx < bound.BottomRight.X; gx++ {
-			plc.lay.Grid.Data[li] = g.Data[gi]
+	for ly, gy := plc.start, bound.Min.Y; gy < bound.Max.Y; ly, gy = ly+1, gy+1 {
+		li := plc.lay.Display.Text.StringsOffset(plc.lay.Display.Rect.Min.X+off, ly)
+		gi := d.Text.StringsOffset(bound.Min.X, gy)
+		for gx := bound.Min.X; gx < bound.Max.X; gx++ {
+			plc.lay.Display.Text.Strings[li] = d.Text.Strings[gi]
+
+			lj, gj := li*4, gi*4
+			plc.lay.Display.Foreground.Pix[lj] = d.Foreground.Pix[gj]
+			plc.lay.Display.Background.Pix[lj] = d.Background.Pix[gj]
+			lj++
+			gj++
+			plc.lay.Display.Foreground.Pix[lj] = d.Foreground.Pix[gj]
+			plc.lay.Display.Background.Pix[lj] = d.Background.Pix[gj]
+			lj++
+			gj++
+			plc.lay.Display.Foreground.Pix[lj] = d.Foreground.Pix[gj]
+			plc.lay.Display.Background.Pix[lj] = d.Background.Pix[gj]
+			lj++
+			gj++
+			plc.lay.Display.Foreground.Pix[lj] = d.Foreground.Pix[gj]
+			plc.lay.Display.Background.Pix[lj] = d.Background.Pix[gj]
+
 			li++
 			gi++
 		}
 	}
 
 	// pad right
-	if pad.Ch != 0 {
-		off += bound.BottomRight.X - bound.TopLeft.X
-		for ly, gy := plc.start, bound.TopLeft.Y; gy < bound.BottomRight.Y; ly, gy = ly+1, gy+1 {
-			li := ly*plc.lay.Grid.Size.X + off
-			plc.lay.Grid.Data[li] = pad
+	if pad != "" {
+		off += bound.Max.X - bound.Min.X
+		for ly, gy := plc.start, bound.Min.Y; gy < bound.Max.Y; ly, gy = ly+1, gy+1 {
+			li := plc.lay.Display.Text.StringsOffset(plc.lay.Display.Rect.Min.X+off, ly)
+			plc.lay.Display.Text.Strings[li] = pad
 		}
 		paded.X++
 	}
@@ -361,59 +379,59 @@ func (plc *LayoutPlacement) copy(g Grid, off int) {
 	plc.have = bound.Size().Add(paded)
 }
 
-func trim(g Grid) (bound point.Box) {
-	anyCol, anyRow := usedColumns(g)
-	bound.BottomRight = g.Size
+func trim(d *display.Display) image.Rectangle {
+	anyCol, anyRow := usedColumns(d)
+	bound := d.Rect
 
 	// trim top
-	for y := 0; y < bound.BottomRight.Y; y++ {
+	for y := bound.Min.Y; y < bound.Max.Y; y++ {
 		if anyRow[y] {
 			break
 		}
-		bound.TopLeft.Y++
+		bound.Min.Y++
 	}
 
 	// trim left
-	for x := 0; x < bound.BottomRight.X; x++ {
+	for x := bound.Min.X; x < bound.Max.X; x++ {
 		if anyCol[x] {
 			break
 		}
-		bound.TopLeft.X++
+		bound.Min.X++
 	}
 
 	// trim right
-	for x := bound.BottomRight.X - 1; x >= bound.TopLeft.X; x-- {
+	for x := bound.Max.X - 1; x >= bound.Min.X; x-- {
 		if anyCol[x] {
 			break
 		}
-		bound.BottomRight.X--
+		bound.Max.X--
 	}
 
 	// trim top
-	for y := bound.BottomRight.Y - 1; y >= bound.BottomRight.Y; y-- {
+	for y := bound.Max.Y - 1; y >= bound.Max.Y; y-- {
 		if anyRow[y] {
 			break
 		}
-		bound.BottomRight.Y--
+		bound.Max.Y--
 	}
 
 	return bound
 }
 
-func usedColumns(g Grid) (anyCol, anyRow []bool) {
-	anyCol = make([]bool, g.Size.X)
-	anyRow = make([]bool, g.Size.Y)
-	for y, i := 0, 0; i < len(g.Data); y++ {
-		for x := 0; x < g.Size.X; x++ {
-			if ch := g.Data[i].Ch; ch != 0 {
+func usedColumns(d *display.Display) (anyCol, anyRow []bool) {
+	anyCol = make([]bool, d.Rect.Dx())
+	anyRow = make([]bool, d.Rect.Dy())
+	for y := d.Rect.Min.Y; y < d.Rect.Max.Y; y++ {
+		x := d.Rect.Min.X
+		i := d.Text.StringsOffset(x, y)
+		for ; x < d.Rect.Max.X; x++ {
+			if s := d.Text.Strings[i]; s != "" {
 				anyCol[x] = true
 				anyRow[y] = true
-			}
-			if fg := g.Data[i].Fg; fg != 0 {
+			} else if j := i * 4; d.Foreground.Pix[j+3] != 0 {
 				anyCol[x] = true
 				anyRow[y] = true
-			}
-			if bg := g.Data[i].Bg; bg != 0 {
+			} else if d.Background.Pix[j+3] != 0 {
 				anyCol[x] = true
 				anyRow[y] = true
 			}

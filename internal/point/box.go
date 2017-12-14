@@ -1,5 +1,7 @@
 package point
 
+import "image"
+
 // Bx is a convenience constructor for Box.
 func Bx(tlx, tly int, brx, bry int) Box {
 	return Box{Point{tlx, tly}, Point{brx, bry}}
@@ -19,19 +21,29 @@ func (b Box) Size() Point {
 // ExpandTo expands a copy of the box to include the given point, returning the
 // copy.
 func (b Box) ExpandTo(pt Point) Box {
-	if pt.X < b.TopLeft.X {
-		b.TopLeft.X = pt.X
+	r := ExpandTo(image.Rect(
+		b.TopLeft.X, b.TopLeft.Y,
+		b.BottomRight.X, b.BottomRight.Y,
+	), image.Point(pt))
+	return Box{Point(r.Min), Point(r.Max)}
+}
+
+// ExpandTo expands a rectangle to include the given point, returning the
+// (maybe larger) rectangle.
+func ExpandTo(r image.Rectangle, pt image.Point) image.Rectangle {
+	if pt.X < r.Min.X {
+		r.Min.X = pt.X
 	}
-	if pt.Y < b.TopLeft.Y {
-		b.TopLeft.Y = pt.Y
+	if pt.Y < r.Min.Y {
+		r.Min.Y = pt.Y
 	}
-	if pt.X >= b.BottomRight.X {
-		b.BottomRight.X = pt.X + 1
+	if pt.X >= r.Max.X {
+		r.Max.X = pt.X + 1
 	}
-	if pt.Y >= b.BottomRight.Y {
-		b.BottomRight.Y = pt.Y + 1
+	if pt.Y >= r.Max.Y {
+		r.Max.Y = pt.Y + 1
 	}
-	return b
+	return r
 }
 
 // ExpandBy symmetrically expands a copy of the box by a given x/y

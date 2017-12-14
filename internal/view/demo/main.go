@@ -5,9 +5,9 @@ import (
 	"log"
 	"math/rand"
 
+	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/input"
 	"github.com/borkshop/bork/internal/perf"
-	"github.com/borkshop/bork/internal/point"
 	"github.com/borkshop/bork/internal/view"
 	"github.com/borkshop/bork/internal/view/hud"
 )
@@ -21,8 +21,8 @@ type world struct {
 	perf perf.Perf
 	ui
 
-	table []rune
-	grid  view.Grid
+	table []string
+	dis   *display.Display
 }
 
 func (w *world) init() {
@@ -31,17 +31,17 @@ func (w *world) init() {
 	w.ui.Perf = &w.perf
 }
 
-func (w *world) generate(sz point.Point) {
-	w.grid = view.MakeGrid(sz)
-	for chs, i := w.table, 0; i < len(w.grid.Data); i++ {
-		w.grid.Data[i].Ch = chs[rand.Intn(len(chs))]
+func (w *world) generate(sz image.Point) {
+	w.dis = display.New(image.Rectangle{Max: sz})
+	for chs, i := w.table, 0; i < len(w.dis.Text.Strings); i++ {
+		w.dis.Text.Strings[i] = chs[rand.Intn(len(chs))]
 	}
 }
 
-func (w *world) Render(termGrid view.Grid) error {
+func (w *world) Render(d *display.Display) error {
 	hud := hud.HUD{
 		Logs:  w.Logs,
-		World: w.grid, // TODO render your world grid and pass it here
+		World: w.dis, // TODO render your world and pass its Display here
 	}
 
 	hud.AddRenderable(&w.ui.Dash, view.AlignRight|view.AlignBottom|view.AlignHFlush)
@@ -53,10 +53,10 @@ func (w *world) Render(termGrid view.Grid) error {
 	hud.HeaderF(">right2")
 	hud.HeaderF("center by default")
 
-	hud.FooterF("use h/j/k/l and y/u/b/n to change grid size")
+	hud.FooterF("use h/j/k/l and y/u/b/n to change world size")
 	hud.FooterF(".>right footer") // the "." forces a new line
 
-	hud.Render(termGrid)
+	hud.Render(d)
 	return nil
 }
 
@@ -66,14 +66,14 @@ func (w *world) Close() error {
 	return nil
 }
 
-func (w *world) HandleKey(k view.KeyEvent) error {
-	handled := w.ui.Dash.HandleKey(k)
+func (w *world) HandleInput(cmd interface{}) error {
+	if w.ui.Dash.HandleInput(cmd) {
+		return nil
+	}
 
-	if !handled {
-		if pt, ok := input.ParseMove(k.Ch, image.ZP); ok {
-			w.generate(w.grid.Size.Add(point.Point(pt)))
-			handled = true
-		}
+	switch c := cmd.(type) {
+	case input.RelativeMove:
+		w.generate(w.dis.Rect.Size().Add(c.Point))
 	}
 
 	w.perf.Process()
@@ -86,25 +86,25 @@ func main() {
 		var w world
 		w.init()
 
-		w.table = []rune{
-			'_', '-',
-			'=', '+',
-			'/', '?',
-			'\\', '|',
-			',', '.',
-			':', ';',
-			'"', '\'',
-			'<', '>',
-			'[', ']',
-			'{', '}',
-			'(', ')',
-			'!', '@', '#', '$',
-			'%', '^', '&', '*',
+		w.table = []string{
+			"_", "-",
+			"=", "+",
+			"/", "?",
+			"\\", "|",
+			",", ".",
+			":", ";",
+			"'", "\"",
+			"<", ">",
+			"[", "]",
+			"{", "}",
+			"(", ")",
+			"!", "@", "#", "$",
+			"%", "^", "&", "*",
 		}
 
 		w.Log("Hello World Of Democraft!")
 
-		w.generate(point.Pt(64, 32))
+		w.generate(image.Pt(64, 32))
 
 		return &w, nil
 	}); err != nil {

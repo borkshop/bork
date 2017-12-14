@@ -3,13 +3,13 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"log"
 	"math/rand"
 	"os"
 	"strings"
 
-	termbox "github.com/nsf/termbox-go"
-
+	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/ecs"
 	"github.com/borkshop/bork/internal/ecs/eps"
 	"github.com/borkshop/bork/internal/ecs/time"
@@ -79,9 +79,9 @@ type world struct {
 	timers time.Facility
 
 	Names  []string
-	Glyphs []rune
-	BG     []termbox.Attribute
-	FG     []termbox.Attribute
+	Glyphs []string
+	BG     []color.RGBA
+	FG     []color.RGBA
 	bodies []*body
 	items  []worldItem
 
@@ -145,9 +145,9 @@ func (w *world) init(v *view.View) {
 
 	// TODO: consider eliminating the padding for EntityID(0)
 	w.Names = []string{""}
-	w.Glyphs = []rune{0}
-	w.BG = []termbox.Attribute{0}
-	w.FG = []termbox.Attribute{0}
+	w.Glyphs = []string{""}
+	w.BG = []color.RGBA{{0, 0, 0, 0}}
+	w.FG = []color.RGBA{{0, 0, 0, 0}}
 	w.bodies = []*body{nil}
 	w.items = []worldItem{nil}
 
@@ -209,9 +209,9 @@ func (rc *rangeChooser) chosen(prior prompt.Prompt, n int) (next prompt.Prompt, 
 
 func (w *world) allocWorld(id ecs.EntityID, t ecs.ComponentType) {
 	w.Names = append(w.Names, "")
-	w.Glyphs = append(w.Glyphs, 0)
-	w.BG = append(w.BG, 0)
-	w.FG = append(w.FG, 0)
+	w.Glyphs = append(w.Glyphs, "")
+	w.BG = append(w.BG, w.BG[0])
+	w.FG = append(w.FG, w.FG[0])
 	w.bodies = append(w.bodies, nil)
 	w.items = append(w.items, nil)
 }
@@ -246,11 +246,10 @@ func (w *world) destroyInput(id ecs.EntityID, t ecs.ComponentType) {
 	}
 }
 
-func (w *world) extent() point.Box {
-	var bbox point.Box
+func (w *world) extent() (bbox image.Rectangle) {
 	for it := w.Iter(renderMask.All()); it.Next(); {
 		pos, _ := w.pos.Get(it.Entity())
-		bbox = bbox.ExpandTo(point.Point(pos))
+		bbox = point.ExpandTo(bbox, pos)
 	}
 	return bbox
 }
@@ -491,7 +490,7 @@ func (w *world) nextWaiting() ecs.Entity {
 		return w.waiting.Entity()
 	}
 	w.enemyCounter++
-	return w.newChar(fmt.Sprintf("enemy%d", w.enemyCounter), 'X', wcAI)
+	return w.newChar(fmt.Sprintf("enemy%d", w.enemyCounter), "X", wcAI)
 }
 
 func soulInvolved(a, b ecs.Entity) bool {
@@ -537,7 +536,7 @@ func (w *world) dealAttackDamage(
 		targName := w.getName(targ, "nameless")
 		name := fmt.Sprintf("remains of %s", targName)
 		pos, _ := w.pos.Get(targ)
-		item := w.newItem(pos, name, '%', severed)
+		item := w.newItem(pos, name, "%", severed)
 		w.timers.Every(item, 5, w.decayRemains)
 		if severed.Len() > 0 {
 			w.log("%s's remains have dropped on the floor", targName)
@@ -549,18 +548,6 @@ func (w *world) dealAttackDamage(
 	}
 
 	bPart.Destroy()
-
-	// var xx []string
-	// for _, root := range targBo.rel.Roots(ecs.AllRel(brControl), nil) {
-	// 	xx = append(xx, targBo.DescribePart(root))
-	// }
-	// w.log("roots: %v", xx)
-	// for cur := targBo.rel.Cursor(ecs.AllRel(brControl), nil); cur.Scan(); {
-	// 	w.log("%v => %v (%v)",
-	// 		targBo.DescribePart(cur.A()),
-	// 		targBo.DescribePart(cur.B()),
-	// 		cur.Entity())
-	// }
 
 	if bo := w.bodies[targ.ID()]; bo.Iter(bcPart.All()).Count() > 0 {
 		return leftover, false
@@ -574,7 +561,7 @@ func (w *world) dealAttackDamage(
 		}
 		if spi > 0 {
 			targ.Delete(wcBody | wcSolid)
-			w.Glyphs[targ.ID()] = '⟡'
+			w.Glyphs[targ.ID()] = "⟡"
 			for _, head := range heads {
 				head.Add(bcDerived)
 				severed.derived[head.ID()] = targ
@@ -678,9 +665,9 @@ func (w *world) chooseAttackedPart(ent ecs.Entity) ecs.Entity {
 	})
 }
 
-func (w *world) addBox(box point.Box, glyph rune) {
+func (w *world) addBox(box image.Rectangle, glyph string) {
 	// TODO: the box should be an entity, rather than each cell
-	last, sz, pos := wallTable.Ref(1), box.Size(), image.Point(box.TopLeft)
+	last, sz, pos := wallTable.Ref(1), box.Size(), image.Point(box.Min)
 	for _, r := range []struct {
 		n int
 		d image.Point
@@ -692,24 +679,34 @@ func (w *world) addBox(box point.Box, glyph rune) {
 	} {
 		for i := 0; i < r.n; i++ {
 			wall := w.AddEntity(wcPosition | wcSolid | wcGlyph | wcBG | wcFG | wcWall)
-			w.Glyphs[wall.ID()] = glyph
 			w.pos.Set(wall, pos)
-			c, _ := wallTable.toColor(last)
-			w.BG[wall.ID()] = c
-			w.FG[wall.ID()] = c + 1
+			id := wall.ID()
+			w.Glyphs[id] = glyph
+			f, _ := wallTable.toColor(last)
+			w.BG[id] = f
+			for i := 0; i < len(wallColors); i++ {
+				if wallColors[i] == f {
+					if j := i + 1; j < len(wallColors) {
+						w.FG[id] = wallColors[j]
+					} else {
+						w.FG[id] = f
+					}
+					break
+				}
+			}
 			pos = pos.Add(r.d)
 			last = wallTable.ChooseNext(w.rng, last)
 		}
 	}
 
-	floorTable.genTile(w.rng, box, func(pos point.Point, bg termbox.Attribute) {
+	floorTable.genTile(w.rng, box, func(pos image.Point, bg color.RGBA) {
 		floor := w.AddEntity(wcPosition | wcBG | wcFloor)
-		w.pos.Set(floor, image.Point(pos))
+		w.pos.Set(floor, pos)
 		w.BG[floor.ID()] = bg
 	})
 }
 
-func (w *world) newItem(pos image.Point, name string, glyph rune, val worldItem) ecs.Entity {
+func (w *world) newItem(pos image.Point, name string, glyph string, val worldItem) ecs.Entity {
 	ent := w.AddEntity(wcPosition | wcName | wcGlyph | wcItem)
 	w.pos.Set(ent, pos)
 	w.Glyphs[ent.ID()] = glyph
@@ -718,7 +715,7 @@ func (w *world) newItem(pos image.Point, name string, glyph rune, val worldItem)
 	return ent
 }
 
-func (w *world) newChar(name string, glyph rune, t ecs.ComponentType) ecs.Entity {
+func (w *world) newChar(name string, glyph string, t ecs.ComponentType) ecs.Entity {
 	ent := w.AddEntity(charMask | wcWaiting | t)
 	w.Glyphs[ent.ID()] = glyph
 	w.Names[ent.ID()] = name
@@ -787,8 +784,8 @@ func (w *world) getAgro(a, b ecs.Entity) (n int) {
 func (w *world) addSpawn(x, y int) ecs.Entity {
 	spawn := w.AddEntity(wcPosition | wcGlyph | wcFG | wcSpawn)
 	w.pos.Set(spawn, image.Pt(x, y))
-	w.Glyphs[spawn.ID()] = '✖' // ×
-	w.FG[spawn.ID()] = 54
+	w.Glyphs[spawn.ID()] = "✖" // ×
+	w.FG[spawn.ID()] = display.Colors[54]
 	return spawn
 }
 
@@ -799,14 +796,13 @@ func main() {
 			return nil, err
 		}
 
-		pt := point.Point{X: 12, Y: 8}
-		w.addBox(point.Box{TopLeft: pt.Neg(), BottomRight: pt}, '#')
+		w.addBox(image.Rect(-12, -8, 12, 8), "#")
 
 		w.addSpawn(0, -5)
 		w.addSpawn(-8, 5)
 		w.addSpawn(8, 5)
 
-		player := w.newChar("you", 'X', wcSoul)
+		player := w.newChar("you", "X", wcSoul)
 		w.ui.bar.addAction(newRangeChooser(w, player))
 
 		w.Process()
