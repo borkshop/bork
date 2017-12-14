@@ -2,11 +2,11 @@ package perf
 
 import (
 	"fmt"
+	"image"
 	"sort"
 	"unicode/utf8"
 
-	"github.com/borkshop/bork/internal/point"
-	"github.com/borkshop/bork/internal/view"
+	"github.com/borkshop/bork/internal/cops/display"
 )
 
 // Dash is a summary widget that can be triggered to show a perf dialog.
@@ -16,12 +16,15 @@ type Dash struct {
 	parts []string
 }
 
-// HandleKey handles key input for the perf dashboard.
-func (da Dash) HandleKey(k view.KeyEvent) bool {
-	switch k.Ch {
-	case '*':
-		da.Perf.shouldProfile = !da.Perf.shouldProfile
-		return true
+// HandleInput handles key input for the perf dashboard.
+func (da Dash) HandleInput(cmd interface{}) bool {
+	switch c := cmd.(type) {
+	case rune:
+		switch c {
+		case '*':
+			da.Perf.shouldProfile = !da.Perf.shouldProfile
+			return true
+		}
 	}
 	return false
 }
@@ -35,7 +38,7 @@ func (da *Dash) Note(name, mess string, args ...interface{}) {
 }
 
 // RenderSize calculates the wanted/needed size render the dashboard.
-func (da *Dash) RenderSize() (wanted, needed point.Point) {
+func (da *Dash) RenderSize() (wanted, needed image.Point) {
 	i := da.lastI()
 	lastElapsed := da.Perf.time[i].end.Sub(da.Perf.time[i].start)
 	ms := &da.Perf.memStats[i]
@@ -66,13 +69,13 @@ func (da *Dash) RenderSize() (wanted, needed point.Point) {
 }
 
 // Render the dashboard.
-func (da *Dash) Render(g view.Grid) {
-	x := 0
-	g.Set(x, 0, da.status(), 0, 0)
+func (da *Dash) Render(d *display.Display) {
+	x := d.Rect.Min.X
+	d.Set(x, 0, da.status(), nil, nil)
 	x++
-	for i := 0; i < len(da.parts) && x < g.Size.X-1; i++ {
+	for i := 0; i < len(da.parts) && x < d.Rect.Max.X; i++ {
 		x++
-		x += g.WriteString(x, 0, da.parts[i])
+		x += d.WriteString(x, 0, nil, nil, da.parts[i])
 	}
 }
 
@@ -84,17 +87,17 @@ func (da Dash) lastI() int {
 	return i
 }
 
-func (da Dash) status() rune {
+func (da Dash) status() string {
 	if da.Perf.err != nil {
-		return '■'
+		return "■"
 	}
 	if da.Perf.profiling {
-		return '◉'
+		return "◉"
 	}
 	if da.Perf.shouldProfile {
-		return '◎'
+		return "◎"
 	}
-	return '○'
+	return "○"
 }
 
 func siBytes(n uint64) string {

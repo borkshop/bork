@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/ecs"
 	"github.com/borkshop/bork/internal/input"
 	"github.com/borkshop/bork/internal/moremath"
@@ -15,7 +17,6 @@ import (
 	"github.com/borkshop/bork/internal/view"
 	"github.com/borkshop/bork/internal/view/hud"
 	"github.com/borkshop/bork/internal/view/hud/prompt"
-	termbox "github.com/nsf/termbox-go"
 )
 
 type actionItem interface {
@@ -116,7 +117,7 @@ func (ab actionBar) label(i int) string {
 	return fmt.Sprintf("%s|Ø", ai.label())
 }
 
-func (ab *actionBar) RenderSize() (wanted, needed point.Point) {
+func (ab *actionBar) RenderSize() (wanted, needed image.Point) {
 	if ab.Prompt.Len() == 0 {
 		return
 	}
@@ -147,27 +148,27 @@ func (ab *actionBar) RenderSize() (wanted, needed point.Point) {
 	return wanted, needed
 }
 
-func (ab *actionBar) Render(g view.Grid) {
+func (ab *actionBar) Render(d *display.Display) {
 	if !ab.Prompt.IsRoot() {
-		ab.Prompt.Render(g)
+		ab.Prompt.Render(d)
 		return
 	}
 
 	// TODO: maybe use EITHER one row OR one column, not a mix (grid of action
 	// items)
 
-	x, y, i := 0, 0, 0
-	x += g.WriteString(x, y, ab.label(i))
+	x, y, i := d.Rect.Min.X, d.Rect.Min.Y, 0
+	x += d.WriteString(x, y, nil, nil, ab.label(i))
 	i++
 	// TODO: missing seps
 	for ; i < len(ab.items); i++ {
 		lb := ab.label(i)
-		if rem := g.Size.X - x; rem >= utf8.RuneCountInString(ab.sep)+utf8.RuneCountInString(lb) {
-			x += g.WriteString(x, y, ab.sep)
-			x += g.WriteString(x, y, lb)
+		if rem := d.Rect.Max.X - x; rem >= utf8.RuneCountInString(ab.sep)+utf8.RuneCountInString(lb) {
+			x += d.WriteString(x, y, nil, nil, ab.sep)
+			x += d.WriteString(x, y, nil, nil, lb)
 		} else {
 			y++
-			x = g.WriteString(0, y, lb)
+			x = d.WriteString(0, y, nil, nil, lb)
 		}
 	}
 }
@@ -262,7 +263,7 @@ func (bs *bodySummary) build() {
 	bs.chargeParts[0] = fmt.Sprintf("Charge: %v", bs.charge)
 }
 
-func (bs bodySummary) RenderSize() (wanted, needed point.Point) {
+func (bs bodySummary) RenderSize() (wanted, needed image.Point) {
 	needed.Y = 5 + 1
 	needed.X = moremath.MaxInt(
 		7,
@@ -284,7 +285,7 @@ func (bs bodySummary) RenderSize() (wanted, needed point.Point) {
 	return needed, needed
 }
 
-func (bs bodySummary) partHPColor(part ecs.Entity) termbox.Attribute {
+func (bs bodySummary) partHPColor(part ecs.Entity) color.RGBA {
 	if part == ecs.NilEntity {
 		return itemColors[0]
 	}
@@ -297,14 +298,14 @@ func (bs bodySummary) partHPColor(part ecs.Entity) termbox.Attribute {
 	return safeColorsIX(itemColors, 1+(len(itemColors)-2)*hp/maxHP)
 }
 
-func (bs bodySummary) Render(g view.Grid) {
+func (bs bodySummary) Render(d *display.Display) {
 	// TODO: bodyHPColors ?
 	// TODO: support scaling body with grafting
 
-	w := g.Size.X
+	w := d.Rect.Dx()
 	y := 0
 	mess := fmt.Sprintf("%.0f%%", float64(bs.hp)/float64(bs.maxHP)*100)
-	g.WriteString((w-len(mess))/2, y, mess)
+	d.WriteString((w-len(mess))/2, y, nil, nil, mess)
 	y++
 
 	//  0123456
@@ -317,38 +318,38 @@ func (bs bodySummary) Render(g view.Grid) {
 	xo := (w - 7) / 2
 	for _, pt := range []struct {
 		x, y int
-		ch   rune
+		s    string
 		t    ecs.ComponentType
 	}{
-		{xo + 2, y + 0, '_', bcUpperArm | bcLeft},
-		{xo + 3, y + 0, 'O', bcHead},
-		{xo + 4, y + 0, '_', bcUpperArm | bcRight},
+		{xo + 2, y + 0, "_", bcPart | bcUpperArm | bcLeft},
+		{xo + 3, y + 0, "O", bcPart | bcHead},
+		{xo + 4, y + 0, "_", bcPart | bcUpperArm | bcRight},
 
-		{xo + 1, y + 1, '/', bcForeArm | bcLeft},
-		{xo + 3, y + 1, '|', bcTorso},
-		{xo + 5, y + 1, '\\', bcForeArm | bcRight},
+		{xo + 1, y + 1, "/", bcPart | bcForeArm | bcLeft},
+		{xo + 3, y + 1, "|", bcPart | bcTorso},
+		{xo + 5, y + 1, "\\", bcPart | bcForeArm | bcRight},
 
-		{xo + 1, y + 2, '=', bcHand | bcLeft},
-		{xo + 3, y + 2, '|', bcTorso},
-		{xo + 5, y + 2, '=', bcHand | bcRight},
+		{xo + 1, y + 2, "=", bcPart | bcHand | bcLeft},
+		{xo + 3, y + 2, "|", bcPart | bcTorso},
+		{xo + 5, y + 2, "=", bcPart | bcHand | bcRight},
 
-		{xo + 2, y + 3, '/', bcThigh | bcLeft},
-		{xo + 4, y + 3, '\\', bcThigh | bcRight},
+		{xo + 2, y + 3, "/", bcPart | bcThigh | bcLeft},
+		{xo + 4, y + 3, "\\", bcPart | bcThigh | bcRight},
 
-		{xo + 0, y + 4, '_', bcFoot | bcLeft},
-		{xo + 1, y + 4, '/', bcCalf | bcLeft},
-		{xo + 5, y + 4, '\\', bcCalf | bcRight},
-		{xo + 6, y + 4, '_', bcFoot | bcRight},
+		{xo + 0, y + 4, "_", bcPart | bcFoot | bcLeft},
+		{xo + 1, y + 4, "/", bcPart | bcCalf | bcLeft},
+		{xo + 5, y + 4, "\\", bcPart | bcCalf | bcRight},
+		{xo + 6, y + 4, "_", bcPart | bcFoot | bcRight},
 	} {
-		it := bs.bo.Iter((bcPart | pt.t).All())
-		if it.Next() {
-			g.Set(pt.x, pt.y, pt.ch, bs.partHPColor(it.Entity()), 0)
+		if it := bs.bo.Iter(pt.t.All()); it.Next() {
+			c := bs.partHPColor(it.Entity())
+			d.Set(pt.x, pt.y, pt.s, c, nil)
 		}
 	}
 
 	y += 5
 
-	g.WriteString(0, y, strings.Join(bs.chargeParts, " "))
+	d.WriteString(0, y, nil, nil, strings.Join(bs.chargeParts, " "))
 	y++
 
 	for i := 0; i < len(bs.damageParts); {
@@ -356,7 +357,7 @@ func (bs bodySummary) Render(g view.Grid) {
 		if j > len(bs.damageParts) {
 			j = len(bs.damageParts)
 		}
-		g.WriteString(0, y, strings.Join(bs.damageParts[i:j], " "))
+		d.WriteString(0, y, nil, nil, strings.Join(bs.damageParts[i:j], " "))
 		y++
 		i = j
 	}
@@ -370,8 +371,8 @@ func (ui *ui) init(v *view.View, perf *perf.Perf) {
 	ui.perfDash.Perf = perf
 }
 
-func (ui *ui) handle(k view.KeyEvent) (proc, handled bool, err error) {
-	if ui.perfDash.HandleKey(k) {
+func (ui *ui) handle(cmd interface{}) (proc, handled bool, err error) {
+	if ui.perfDash.HandleInput(cmd) {
 		return false, true, nil
 	}
 
@@ -382,11 +383,15 @@ func (ui *ui) handle(k view.KeyEvent) (proc, handled bool, err error) {
 		}
 	}()
 
-	if k.Key == termbox.KeyEsc {
-		return false, true, view.ErrStop
+	switch c := cmd.(type) {
+	case rune:
+		switch c {
+		case '':
+			return false, true, view.ErrStop
+		}
 	}
 
-	if handled, canceled, prompting := ui.prompt.Handle(k); handled {
+	if handled, canceled, prompting := ui.prompt.Handle(cmd); handled {
 		proc = !prompting && !canceled
 		if proc {
 			ui.prompt.Clear()
@@ -394,15 +399,15 @@ func (ui *ui) handle(k view.KeyEvent) (proc, handled bool, err error) {
 		return proc, true, nil
 	}
 
-	if handled, canceled, prompting := ui.bar.Handle(k); handled {
+	if handled, canceled, prompting := ui.bar.Handle(cmd); handled {
 		return !prompting && !canceled, true, nil
 	}
 
 	return false, false, nil
 }
 
-func (w *world) HandleKey(k view.KeyEvent) (rerr error) {
-	proc, handled, err := w.ui.handle(k)
+func (w *world) HandleInput(cmd interface{}) (rerr error) {
+	proc, handled, err := w.ui.handle(cmd)
 	defer func() {
 		if rerr != nil {
 			_ = w.perf.Close()
@@ -420,7 +425,6 @@ func (w *world) HandleKey(k view.KeyEvent) (rerr error) {
 	}
 
 	player := w.findPlayer()
-
 	if player != ecs.NilEntity && w.ui.bar.IsRoot() {
 		defer func() {
 			if rerr != nil {
@@ -434,37 +438,43 @@ func (w *world) HandleKey(k view.KeyEvent) (rerr error) {
 		}()
 	}
 
-	// special keys
 	if !handled {
-		switch k.Ch {
-		case ',':
-			if player != ecs.NilEntity {
-				if itemPrompt, haveItemsHere := w.itemPrompt(w.prompt, player); haveItemsHere {
-					w.prompt, _ = itemPrompt.RunPrompt(w.prompt.Unwind())
-				}
-			}
-			proc, handled = false, true
-		case '_':
-			if player != ecs.NilEntity {
-				if player.Type().HasAll(wcSolid) {
-					player.Delete(wcSolid)
-					w.Glyphs[player.ID()] = '~'
-				} else {
-					player.Add(wcSolid)
-					w.Glyphs[player.ID()] = 'X'
-				}
-			}
-			proc, handled = true, true
-		}
-	}
-
-	// parse player move
-	if !handled {
-		if move, ok := parseMove(k); ok {
+		switch c := cmd.(type) {
+		case input.RelativeMove:
 			for it := w.Iter(playMoveMask.All()); it.Next(); {
-				w.moves.AddPendingMove(it.Entity(), move, 1, maxRestingCharge)
+				w.moves.AddPendingMove(it.Entity(), c.Point, 1, maxRestingCharge)
 			}
 			proc, handled = true, true
+
+		case rune:
+			switch c {
+			case '.':
+				for it := w.Iter(playMoveMask.All()); it.Next(); {
+					w.moves.AddPendingMove(it.Entity(), image.ZP, 1, maxRestingCharge)
+				}
+				proc, handled = true, true
+
+			case ',':
+				if player != ecs.NilEntity {
+					if itemPrompt, haveItemsHere := w.itemPrompt(w.prompt, player); haveItemsHere {
+						w.prompt, _ = itemPrompt.RunPrompt(w.prompt.Unwind())
+					}
+				}
+				proc, handled = false, true
+
+			case '_':
+				if player != ecs.NilEntity {
+					if player.Type().HasAll(wcSolid) {
+						player.Delete(wcSolid)
+						w.Glyphs[player.ID()] = "~"
+					} else {
+						player.Add(wcSolid)
+						w.Glyphs[player.ID()] = "X"
+					}
+				}
+				proc, handled = true, true
+
+			}
 		}
 	}
 
@@ -480,31 +490,10 @@ func (w *world) HandleKey(k view.KeyEvent) (rerr error) {
 	return nil
 }
 
-func parseMove(k view.KeyEvent) (image.Point, bool) {
-	if pt, ok := input.ParseMove(k.Ch, image.ZP); ok {
-		return pt, ok
-	}
-	switch k.Ch {
-	case '.':
-		return image.ZP, true
-	}
-	switch k.Key {
-	case termbox.KeyArrowDown:
-		return image.Pt(0, 1), true
-	case termbox.KeyArrowUp:
-		return image.Pt(0, -1), true
-	case termbox.KeyArrowLeft:
-		return image.Pt(-1, 0), true
-	case termbox.KeyArrowRight:
-		return image.Pt(1, 0), true
-	}
-	return image.ZP, false
-}
-
-func (w *world) Render(termGrid view.Grid) error {
+func (w *world) Render(d *display.Display) error {
 	hud := hud.HUD{
 		Logs:  w.ui.Logs,
-		World: w.renderViewport(termGrid.Size),
+		World: w.renderViewport(d.Rect),
 	}
 
 	hud.HeaderF(">%v souls v %v demons",
@@ -521,14 +510,14 @@ func (w *world) Render(termGrid view.Grid) error {
 			view.AlignBottom|view.AlignRight|view.AlignHFlush)
 	}
 
-	hud.Render(termGrid)
+	hud.Render(d)
 	return nil
 }
 
-func (w *world) renderViewport(max point.Point) view.Grid {
+func (w *world) makeViewport(within image.Rectangle) (*display.Display, []uint8) {
 	// collect world extent, and compute a viewport focus position
 	var (
-		bbox  point.Box
+		bbox  image.Rectangle
 		focus image.Point
 	)
 	for it := w.Iter(renderMask.All()); it.Next(); {
@@ -538,92 +527,101 @@ func (w *world) renderViewport(max point.Point) view.Grid {
 			// "last wins"
 			focus = pos
 		}
-		bbox = bbox.ExpandTo(point.Point(pos))
+		bbox = point.ExpandTo(bbox, pos)
 	}
 
-	// center clamped grid around focus
-	offset := image.Point(bbox.TopLeft.Add(bbox.Size().Div(2))).Sub(focus)
-	ofbox := bbox.Add(point.Point(offset))
-	if ofbox.TopLeft.X < 0 {
-		offset.X -= ofbox.TopLeft.X
+	// center clamped box around focus
+	if dx := bbox.Dx() - within.Dx(); dx > 0 {
+		bbox.Max.X -= dx
 	}
-	if ofbox.TopLeft.Y < 0 {
-		offset.Y -= ofbox.TopLeft.Y
+	if dy := bbox.Dy() - within.Dy(); dy > 0 {
+		bbox.Max.Y -= dy
 	}
+	ctr := bbox.Min.Add(bbox.Size().Div(2))
+	bbox = bbox.Add(ctr.Sub(focus))
 
 	// TODO: re-use
-	grid := view.MakeGrid(ofbox.Size().Min(max))
-	zVals := make([]uint8, len(grid.Data))
+	dis := display.New(bbox)
+	zVals := make([]uint8, len(dis.Text.Strings))
 
-	// TODO: use an pos range query
+	return dis, zVals
+}
+
+func (w *world) renderGlyphEntity(t ecs.ComponentType, id ecs.EntityID) (fg color.RGBA, zVal uint8) {
+	// TODO pre-compute color when HP updates?
+
+	if t.HasAll(wcSoul) {
+		if t.HasAll(wcBody) {
+			hp, maxHP := w.bodies[id].HPRange()
+			return safeColorsIX(soulColors, 1+(len(soulColors)-2)*hp/maxHP), 255
+		}
+		return soulColors[0], 127
+	}
+
+	if t.HasAll(wcAI) {
+		if t.HasAll(wcBody) {
+			hp, maxHP := w.bodies[id].HPRange()
+			return safeColorsIX(aiColors, 1+(len(aiColors)-2)*hp/maxHP), 254
+		}
+		return aiColors[0], 126
+	}
+
+	if t.HasAll(wcItem) {
+		if dur, ok := w.items[id].(durableItem); ok {
+			if hp, maxHP := dur.HPRange(); maxHP > 0 {
+				return safeColorsIX(itemColors, (len(itemColors)-1)*hp/maxHP), 10
+			}
+			return itemColors[0], 10
+		}
+		return itemColors[len(itemColors)-1], 10
+	}
+
+	if t.HasAll(wcFG) {
+		fg = w.FG[id]
+	}
+	return fg, 2
+}
+
+func (w *world) renderViewport(within image.Rectangle) *display.Display {
+	dis, zVals := w.makeViewport(within)
+	// TODO: use an eps range query
 	for it := w.Iter(wcPosition.All(), (wcGlyph | wcBG).Any()); it.Next(); {
 		pos, _ := w.pos.Get(it.Entity())
-		pos = pos.Add(offset)
-		gi := pos.Y*grid.Size.X + pos.X
-		if gi < 0 || gi >= len(grid.Data) {
-			// TODO: debug
+		if dis.Rect.Intersect(image.Rectangle{pos, pos}) == image.ZR {
 			continue
 		}
 
+		var (
+			t   = ""
+			fg  = color.RGBA{0, 0, 0, 0}
+			bg  = color.RGBA{0, 0, 0, 0}
+			any = false
+		)
+
 		if it.Type().HasAll(wcGlyph) {
-			var fg termbox.Attribute
-			var zVal uint8
-
-			zVal = 1
-
-			// TODO: move to hp update
-			if it.Type().HasAll(wcBody) && it.Type().HasAny(wcSoul|wcAI) {
-				zVal = 255
-				hp, maxHP := w.bodies[it.ID()].HPRange()
-				if !it.Type().HasAll(wcSoul) {
-					zVal--
-					fg = safeColorsIX(aiColors, 1+(len(aiColors)-2)*hp/maxHP)
-				} else {
-					fg = safeColorsIX(soulColors, 1+(len(soulColors)-2)*hp/maxHP)
+			c, zVal := w.renderGlyphEntity(it.Type(), it.ID())
+			s := w.Glyphs[it.ID()]
+			if s != "" {
+				if zi := dis.Text.StringsOffset(pos.X, pos.Y); zVal >= zVals[zi] {
+					fg = c
+					t = s
+					zVals[zi] = zVal
+					any = true
 				}
-			} else if it.Type().HasAll(wcSoul) {
-				zVal = 127
-				fg = soulColors[0]
-			} else if it.Type().HasAll(wcAI) {
-				zVal = 126
-				fg = aiColors[0]
-			} else if it.Type().HasAll(wcItem) {
-				zVal = 10
-				fg = itemColors[len(itemColors)-1]
-				if dur, ok := w.items[it.ID()].(durableItem); ok {
-					fg = itemColors[0]
-					if hp, maxHP := dur.HPRange(); maxHP > 0 {
-						fg = safeColorsIX(itemColors, (len(itemColors)-1)*hp/maxHP)
-					}
-				}
-			} else {
-				zVal = 2
-				if it.Type().HasAll(wcFG) {
-					fg = w.FG[it.ID()]
-				}
-			}
-
-			if ch := w.Glyphs[it.ID()]; zVal >= zVals[gi] && ch != 0 {
-				grid.Data[gi].Ch = ch
-				zVals[gi] = zVal
-				if fg != 0 {
-					grid.Data[gi].Fg = fg + 1
-				} else {
-					grid.Data[gi].Fg = 0
-				}
-			} else {
-				continue
 			}
 		}
 
 		if it.Type().HasAll(wcBG) {
-			if bg := w.BG[it.ID()]; bg != 0 {
-				grid.Data[gi].Bg = bg + 1
-			}
+			bg = w.BG[it.ID()]
+			any = true
+		}
+
+		if any {
+			dis.MergeRGBA(pos.X, pos.Y, t, fg, bg)
 		}
 	}
 
-	return grid
+	return dis
 }
 
 func (w *world) itemPrompt(pr prompt.Prompt, ent ecs.Entity) (prompt.Prompt, bool) {
@@ -673,7 +671,7 @@ func (bo *body) interact(pr prompt.Prompt, w *world, item, ent ecs.Entity) (prom
 	return pr, true
 }
 
-func safeColorsIX(colors []termbox.Attribute, i int) termbox.Attribute {
+func safeColorsIX(colors []color.RGBA, i int) color.RGBA {
 	if i < 0 {
 		return colors[1]
 	}

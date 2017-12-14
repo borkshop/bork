@@ -2,16 +2,17 @@ package hud_test
 
 import (
 	"fmt"
+	"image"
 	"testing"
 
-	"github.com/borkshop/bork/internal/point"
+	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/view"
 	. "github.com/borkshop/bork/internal/view/hud"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestHUDLogs(t *testing.T) {
-	termSize := point.Point{X: 60, Y: 15}
+	termSize := image.Point{X: 60, Y: 15}
 	header := []string{
 		">banner",
 	}
@@ -256,33 +257,34 @@ func TestHUDLogs(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("after logging %q", step.log), func(t *testing.T) {
-			termGrid := view.MakeGrid(termSize)
+			d := display.New(image.Rectangle{Max: termSize})
 
 			logs.Log(step.log)
 
 			hud := HUD{
-				Logs: logs,
+				Logs:  logs,
+				World: display.New(image.Rect(0, 0, 3, 3)),
 			}
 			for _, line := range header {
 				hud.HeaderF(line)
 			}
 
-			hud.Render(termGrid)
-			if !assert.Equal(t, step.expected, termGrid.Lines(' ')) {
+			hud.Render(d)
+			if !assert.Equal(t, step.expected, d.Lines(" ")) {
 				wanted, needed := logs.RenderSize()
 
 				t.Logf("logs render needed=%v", needed)
-				g := view.MakeGrid(needed)
-				logs.Render(g)
-				for i, line := range g.Lines('Ø') {
+				d := display.New(image.Rectangle{Max: needed})
+				logs.Render(d)
+				for i, line := range d.Lines("Ø") {
 					t.Logf("min[%v] %q", i, line)
 				}
 
 				if wanted != needed {
 					t.Logf("logs render wanted=%v", wanted)
-					g := view.MakeGrid(needed)
-					logs.Render(g)
-					for i, line := range g.Lines('Ø') {
+					d := display.New(image.Rectangle{Max: needed})
+					logs.Render(d)
+					for i, line := range d.Lines("Ø") {
 						t.Logf("max[%v] %q", i, line)
 					}
 				}

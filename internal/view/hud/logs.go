@@ -2,10 +2,11 @@ package hud
 
 import (
 	"fmt"
+	"image"
 	"unicode/utf8"
 
+	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/moremath"
-	"github.com/borkshop/bork/internal/point"
 	"github.com/borkshop/bork/internal/view"
 )
 
@@ -25,7 +26,7 @@ func (logs *Logs) Init(logCap int) {
 }
 
 // RenderSize returns the desired and necessary sizes for rendering.
-func (logs Logs) RenderSize() (wanted, needed point.Point) {
+func (logs Logs) RenderSize() (wanted, needed image.Point) {
 	needed.X = 1
 	needed.Y = moremath.MinInt(len(logs.Buffer), logs.Min)
 	wanted.X = 1
@@ -42,13 +43,13 @@ func (logs Logs) RenderSize() (wanted, needed point.Point) {
 }
 
 // Render renders the log buffer.
-func (logs Logs) Render(g view.Grid) {
-	off := len(logs.Buffer) - g.Size.Y
+func (logs Logs) Render(d *display.Display) {
+	off := len(logs.Buffer) - d.Rect.Max.Y
 	if off < 0 {
 		off = 0
 	}
 	for i, y := off, 0; i < len(logs.Buffer); i, y = i+1, y+1 {
-		g.WriteString(0, y, logs.Buffer[i])
+		d.WriteString(0, y, nil, nil, logs.Buffer[i])
 	}
 }
 

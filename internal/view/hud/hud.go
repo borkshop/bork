@@ -1,26 +1,41 @@
 package hud
 
 import (
+	"image"
+	"image/draw"
 	"unicode/utf8"
 
+	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/view"
 )
 
 // HUD provides an opinionated view system with a Header, Footer, and Logs on
-// top of a base grid (e.g world map).
+// top of a base display (e.g world map).
 type HUD struct {
-	World view.Grid
+	World *display.Display
 	Logs  Logs
 
 	parts []view.Renderable
 	align []view.Align
 }
 
-// Render the context into the given terminal grid.
-func (hud HUD) Render(termGrid view.Grid) {
+// Render the context into the given display buffer
+func (hud HUD) Render(d *display.Display) {
 	// NOTE: intentionally not a layout item so that the UI elemenst overlay
-	// the world grid.
-	termGrid.Copy(hud.World)
+	// the world display.
+	bound, off := d.Rect, image.ZP
+	if n := bound.Dx() - hud.World.Rect.Dx(); n > 0 {
+		bound.Min.X += n / 2
+	} else if n < 0 {
+		off.X += n / 2
+	}
+	if n := bound.Dy() - hud.World.Rect.Dy(); n > 0 {
+		bound.Min.Y += n / 2
+	} else if n < 0 {
+		off.Y += n / 2
+	}
+
+	display.Draw(d, bound, hud.World, off, draw.Over)
 
 	if len(hud.Logs.Buffer) > 0 {
 		// TODO: scrolling
@@ -31,7 +46,7 @@ func (hud HUD) Render(termGrid view.Grid) {
 		}
 	}
 
-	lay := view.Layout{Grid: termGrid}
+	lay := view.Layout{Display: d}
 	for i := range hud.parts {
 		lay.Render(hud.parts[i], hud.align[i])
 	}

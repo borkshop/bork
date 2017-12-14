@@ -4,7 +4,7 @@ import (
 	"errors"
 	"io"
 
-	termbox "github.com/nsf/termbox-go"
+	"github.com/borkshop/bork/internal/cops/display"
 )
 
 // ErrStop may be returned by a client method to mean "we're done, break run loop".
@@ -13,16 +13,9 @@ var ErrStop = errors.New("client stop")
 // Client is the interface exposed to the user of View; its various methods are
 // called in a loop that provides terminal orchestration.
 type Client interface {
-	Render(Grid) error
-	HandleKey(KeyEvent) error
+	Render(*display.Display) error
+	HandleInput(interface{}) error
 	Close() error
-}
-
-// KeyEvent represents a terminal key event.
-type KeyEvent struct {
-	Mod termbox.Modifier
-	Key termbox.Key
-	Ch  rune
 }
 
 // JustKeepRunning starts a view, and then running newly minted Runables
@@ -31,7 +24,7 @@ type KeyEvent struct {
 func JustKeepRunning(factory func(v *View) (Client, error)) error {
 	var v View
 	return v.runWith(func() error {
-		for v.polling {
+		for {
 			client, err := factory(&v)
 			if err != nil {
 				return err
@@ -47,7 +40,6 @@ func JustKeepRunning(factory func(v *View) (Client, error)) error {
 				return err
 			}
 		}
-		return nil
 	})
 }
 
