@@ -75,20 +75,27 @@ func bounds(fd uintptr) (image.Rectangle, error) {
 	return image.Rect(0, 0, size.X, size.Y), nil
 }
 
+type dimensions struct {
+	rows    uint16
+	cols    uint16
+	xpixels uint16
+	ypixels uint16
+}
+
 func size(fd uintptr) (size image.Point, err error) {
-	var dimensions [4]uint16
+	var dim dimensions
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL,
-		fd, syscall.TIOCGWINSZ, uintptr(unsafe.Pointer(&dimensions)))
+		fd, syscall.TIOCGWINSZ, uintptr(unsafe.Pointer(&dim)))
 	if errno != 0 {
 		return image.Point{}, errno
 	}
-	return image.Pt(int(dimensions[1]), int(dimensions[0])), nil
+	return image.Pt(int(dim.cols), int(dim.rows)), nil
 }
 
 func setSize(fd uintptr, size image.Point) error {
-	dimensions := [4]uint16{uint16(size.Y), uint16(size.X), 0, 0}
+	dim := dimensions{uint16(size.Y), uint16(size.X), 0, 0}
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL,
-		fd, syscall.TIOCSWINSZ, uintptr(unsafe.Pointer(&dimensions)))
+		fd, syscall.TIOCSWINSZ, uintptr(unsafe.Pointer(&dim)))
 	if errno != 0 {
 		return errno
 	}
