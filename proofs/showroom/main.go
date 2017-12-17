@@ -46,7 +46,11 @@ func run() error {
 	buf, cur = cur.Clear(buf)
 	buf, cur = cur.Hide(buf)
 
-	commands, mute := input.Channel(os.Stdin)
+	commands, mute := input.Channel(os.Stdin,
+		input.RecognizeViKeys,
+		input.RecognizeShiftedViKeys,
+	)
+
 	defer mute()
 
 	var at image.Point
@@ -63,10 +67,15 @@ Loop:
 		select {
 		case command := <-commands:
 			switch c := command.(type) {
-			case input.Move:
-				at = at.Add(image.Point(c))
-			case input.ShiftMove:
-				at = at.Add(point.MulRespective(image.Point(c), bounds.Size()))
+			case input.RelativeMove:
+				pt := c.Point
+				if c.Multipier > 1 {
+					// NOTE multiples of view port are probably not useful, so
+					// we ignore the actual value
+					pt = point.MulRespective(pt, bounds.Size())
+				}
+				at = at.Add(pt)
+
 			case rune:
 				switch c {
 				case 'q':

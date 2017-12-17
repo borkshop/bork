@@ -2,35 +2,45 @@ package input
 
 import (
 	"bufio"
-	"image"
 	"io"
-	"unicode"
 )
 
-type Move image.Point
-type ShiftMove image.Point
+// Recognizer is an input rune recognizer. It gets passed a single read rune,
+// and may scan zero or more additional runes.
+type Recognizer func(rune, io.RuneScanner) (interface{}, error)
 
-// Channel returns a read channel for commands, distinguishable by type, and a
-// a closer to stop channel's writer.
-func Channel(reader io.Reader) (<-chan interface{}, func()) {
-	ch := make(chan interface{})
-	go func() {
-		reader := bufio.NewReader(reader)
+// Channel returns a channel fed by scanning runes through a delegate list of
+// recognizers. If an IO or recognizer error occurs, it is put on the channel,
+// and the channel is closed.
+func Channel(r io.Reader, recs ...Recognizer) (<-chan interface{}, func()) {
+	ch := make(chan interface{}, 1)
+	go func(rs io.RuneScanner) {
 		for {
-			r, _, err := reader.ReadRune()
-			if err != nil {
+			if val, err := scanOne(rs, recs); err != nil {
+				ch <- err
+				close(ch)
 				return
-			}
-			if pt, ok := parseExtViDir(r); ok {
-				ch <- Move(pt)
-			} else if pt, ok := parseExtViDir(unicode.ToLower(r)); ok {
-				ch <- ShiftMove(pt)
-			} else {
-				ch <- r
+			} else if val != nil {
+				ch <- val
 			}
 		}
-	}()
+	}(bufio.NewReader(r))
 	return ch, func() {
-		// TODO abort goroutine
+		// TODO (kris) abort goroutine
+		// TODO (josh) we'll probably need to do some non-blocking sigio
+		// shenanigans like termbox does (at least on unix).
 	}
+}
+
+func scanOne(rs io.RuneScanner, recs []Recognizer) (interface{}, error) {
+	r, _, err := rs.ReadRune()
+	if err != nil {
+		return nil, err
+	}
+	for _, rec := range recs {
+		if val, err := rec(r, rs); val != nil || err != nil {
+			return val, err
+		}
+	}
+	return r, nil
 }
