@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/borkshop/bork/internal/cops/display"
-	"github.com/borkshop/bork/internal/cops/terminal"
 	"github.com/borkshop/bork/internal/hilbert"
 	"github.com/borkshop/bork/internal/input"
 	"github.com/borkshop/bork/internal/point"
@@ -25,40 +24,30 @@ var (
 	blue  = color.RGBA{2, 50, 145, 255}
 )
 
-func run() error {
-
-	term := terminal.New(os.Stdout.Fd())
-	defer term.Restore()
-	term.SetRaw()
-
-	bounds, err := term.Bounds()
+func run() (rerr error) {
+	term, err := display.NewTerminal(os.Stdout)
 	if err != nil {
 		return err
 	}
-
-	world := newWorld()
-
-	dis := display.New(bounds)
-
-	var buf []byte
-	cur := display.Start
-	buf, cur = cur.Home(buf)
-	buf, cur = cur.Clear(buf)
-	buf, cur = cur.Hide(buf)
+	defer func() {
+		if cerr := term.Close(); rerr == nil {
+			rerr = cerr
+		}
+	}()
 
 	commands, mute := input.Channel(os.Stdin)
 	defer mute()
 
+	world := newWorld()
 	var at image.Point
 
 Loop:
 	for {
-		world.Draw(dis, at)
+		world.Draw(term.Display, at)
 
-		buf, cur = display.Render(buf, cur, dis, display.Model24)
-		buf, cur = cur.Reset(buf)
-		os.Stdout.Write(buf)
-		buf = buf[0:0]
+		if err := term.Render(); err != nil {
+			return err
+		}
 
 		select {
 		case command := <-commands:
@@ -84,11 +73,6 @@ Loop:
 
 	}
 
-	buf, cur = cur.Home(buf)
-	buf, cur = cur.Clear(buf)
-	buf, cur = cur.Show(buf)
-	os.Stdout.Write(buf)
-	buf = buf[0:0]
 	return nil
 }
 
