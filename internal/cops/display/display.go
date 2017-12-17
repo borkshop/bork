@@ -96,6 +96,32 @@ func (d *Display) SetRGBA(x, y int, t string, f, b color.RGBA) {
 	}
 }
 
+// MergeRGBA sets the given string and colors if they are
+// non-empty and not transparent respectively.
+func (d *Display) MergeRGBA(x, y int, t string, f, b color.RGBA) {
+	if i := d.Text.StringsOffset(x, y); i >= 0 && i < len(d.Text.Strings) {
+		if t != "" {
+			d.Text.Strings[i] = t
+		}
+		if f.A > 0 {
+			// TODO blend < 0xff
+			d.Foreground.Pix[i] = f.R
+			d.Foreground.Pix[i+1] = f.G
+			d.Foreground.Pix[i+2] = f.B
+			d.Foreground.Pix[i+3] = f.A
+		}
+		if b.A > 0 {
+			// TODO blend < 0xff N.B also over Foreground
+			d.Background.Pix[i] = b.R
+			d.Background.Pix[i+1] = b.G
+			d.Background.Pix[i+2] = b.B
+			d.Background.Pix[i+3] = b.A
+		}
+	}
+}
+
+// TODO func (d *Display) Merge(x, y, t, f, b)
+
 func (d *Display) setrgbai(i int, t string, f, b color.RGBA) {
 	d.Text.Strings[i] = t
 	j := i * 4
