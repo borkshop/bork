@@ -66,7 +66,7 @@ func (sim *benchSim) generate() {
 			t := letters[sim.rand()%26]
 			r := sim.rand()
 			f := color.RGBA{R: uint8(r), G: uint8(r >> 8), B: uint8(r >> 16)}
-			b := color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+			b := color.RGBA{}
 			sim.SetRGBA(x, y, t, f, b)
 		}
 	}
