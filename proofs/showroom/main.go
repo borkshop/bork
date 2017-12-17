@@ -5,6 +5,8 @@ import (
 	"image"
 	"image/color"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/hilbert"
@@ -38,6 +40,9 @@ func run() (rerr error) {
 	commands, mute := input.Channel(os.Stdin)
 	defer mute()
 
+	sigwinch := make(chan os.Signal)
+	signal.Notify(sigwinch, syscall.SIGWINCH)
+
 	world := newWorld()
 	var at image.Point
 
@@ -50,25 +55,28 @@ Loop:
 		}
 
 		select {
+		case <-sigwinch:
+			if err := term.UpdateSize(); err != nil {
+				return err
+			}
 		case command := <-commands:
 			switch c := command.(type) {
 			case input.Move:
 				at = at.Add(image.Point(c))
 			case input.ShiftMove:
-				at = at.Add(point.MulRespective(image.Point(c), bounds.Size()))
+				at = at.Add(point.MulRespective(image.Point(c), term.Display.Rect.Size()))
 			case rune:
 				switch c {
 				case 'q':
 					break Loop
 				}
 			}
-		}
-
-		if at.X < 0 {
-			at.X = 0
-		}
-		if at.Y < 0 {
-			at.Y = 0
+			if at.X < 0 {
+				at.X = 0
+			}
+			if at.Y < 0 {
+				at.Y = 0
+			}
 		}
 
 	}
