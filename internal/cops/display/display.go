@@ -81,8 +81,12 @@ func (d *Display) Clear(r image.Rectangle) {
 // the given position.
 func (d *Display) Set(x, y int, t string, f, b color.Color) {
 	d.Text.Set(x, y, t)
-	d.Foreground.Set(x, y, f)
-	d.Background.Set(x, y, b)
+	if f != nil {
+		d.Foreground.Set(x, y, f)
+	}
+	if b != nil {
+		d.Background.Set(x, y, b)
+	}
 }
 
 // SetRGBA is a faster Set.
