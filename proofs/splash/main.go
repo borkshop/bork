@@ -14,7 +14,6 @@ import (
 	"github.com/borkshop/bork/internal/cops/bitmap"
 	"github.com/borkshop/bork/internal/cops/braille"
 	"github.com/borkshop/bork/internal/cops/display"
-	"github.com/borkshop/bork/internal/cops/terminal"
 	"github.com/borkshop/bork/internal/cops/text"
 	"github.com/borkshop/bork/internal/input"
 	"github.com/borkshop/bork/internal/rectangle"
@@ -35,70 +34,48 @@ var (
 	asphalt = color.RGBA{29, 33, 48, 255}
 )
 
-func run() error {
-
-	term := terminal.New(os.Stdout.Fd())
-	defer term.Restore()
-	term.SetRaw()
+func run() (rerr error) {
+	term, err := display.NewTerminal(os.Stdout)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := term.Close(); rerr == nil {
+			rerr = cerr
+		}
+	}()
 
 	commands, mute := input.Channel(os.Stdin)
 	defer mute()
 
-	cur := display.Start
-	var buf []byte
-
-	ticker := time.NewTicker(time.Second / 60)
-
 	sigwinch := make(chan os.Signal)
 	signal.Notify(sigwinch, syscall.SIGWINCH)
 
-Loop:
+	ticker := time.NewTicker(time.Second / 60)
+
 	for {
+		splash(term.Display, int(time.Now().UnixNano()/100000000))
 
-		cur = display.Start
-		buf, cur = cur.Home(buf)
-		buf, cur = cur.Clear(buf)
-		buf, cur = cur.Hide(buf)
-
-		bounds, err := term.Bounds()
-		if err != nil {
+		if err := term.Render(); err != nil {
 			return err
 		}
 
-		front := display.New(bounds)
-
-	Animation:
-		for {
-			splash(front, int(time.Now().UnixNano()/100000000))
-
-			buf, cur = display.Render(buf, cur, front, display.Model24)
-			buf, cur = cur.Reset(buf)
-			os.Stdout.Write(buf)
-			buf = buf[0:0]
-
-			select {
-			case <-ticker.C:
-				continue Animation
-			case <-sigwinch:
-				continue Loop
-			case command := <-commands:
-				switch c := command.(type) {
-				case rune:
-					switch c {
-					case 'q':
-						break Loop
-					}
+		select {
+		case <-ticker.C:
+		case <-sigwinch:
+			if err := term.UpdateSize(); err != nil {
+				return err
+			}
+		case command := <-commands:
+			switch c := command.(type) {
+			case rune:
+				switch c {
+				case 'q':
+					return nil
 				}
 			}
 		}
 	}
-
-	buf, cur = cur.Home(buf)
-	buf, cur = cur.Clear(buf)
-	buf, cur = cur.Show(buf)
-	os.Stdout.Write(buf)
-	buf = buf[0:0]
-	return nil
 }
 
 func splash(d *display.Display, t int) {
