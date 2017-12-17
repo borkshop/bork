@@ -146,7 +146,7 @@ func (d *Display) At(x, y int) (t string, f, b color.Color) {
 // RGBAAt is a faster version of At.
 func (d *Display) RGBAAt(x, y int) (t string, f, b color.RGBA) {
 	if d == nil {
-		return "", Colors[7], color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+		return "", Colors[7], color.RGBA{}
 	}
 	if i := d.Text.StringsOffset(x, y); i >= 0 && i < len(d.Text.Strings) {
 		return d.rgbaati(i)
