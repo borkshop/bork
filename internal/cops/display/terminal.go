@@ -7,8 +7,7 @@ import (
 	"github.com/borkshop/bork/internal/cops/terminal"
 )
 
-// Terminal manages rendering a display buffer rendered to a
-// terminal.
+// Terminal manages rendering a display buffer rendered to a terminal.
 type Terminal struct {
 	*Display
 
@@ -19,9 +18,8 @@ type Terminal struct {
 	cur   Cursor
 }
 
-// NewTerminal takes control of a terminal, readying it for
-// rendering by putting it in raw mode, clearing it, and
-// hiding the cursor.
+// NewTerminal takes control of a terminal, readying it for rendering by
+// putting it in raw mode, clearing it, and hiding the cursor.
 func NewTerminal(out *os.File) (*Terminal, error) {
 	term := &Terminal{
 		out:   out,
@@ -74,7 +72,7 @@ func (term *Terminal) flush() error {
 	if len(term.buf) == 0 {
 		return nil
 	}
-	attempts := 5 // TODO sanity check
+	attempts := 5 // TODO sanity check: is this even worthwhile?
 	n, err := term.out.Write(term.buf)
 	for attempts > 1 && err == io.ErrShortWrite {
 		attempts--
@@ -91,7 +89,8 @@ func (term *Terminal) UpdateSize() error {
 	bounds, err := term.term.Bounds()
 	if err == nil {
 		term.Display = New(bounds)
-		// TODO sub-display for smaller, super-display when exhaling back
+		// TODO re-use underlying capacity by drilling down to a sub-display
+		// when decreasing, and conversely when increasing
 	}
 	return err
 }
@@ -102,6 +101,7 @@ func (term Terminal) fullRender(cur Cursor, buf []byte) ([]byte, Cursor) {
 
 // Render the display buffer to the terminal.
 func (term *Terminal) Render() error {
+	// TODO support differential render
 	term.curse(
 		term.fullRender,
 		Cursor.Reset,
