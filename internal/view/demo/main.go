@@ -4,6 +4,7 @@ import (
 	"image"
 	"log"
 	"math/rand"
+	"os"
 
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/input"
@@ -82,6 +83,12 @@ func (w *world) HandleInput(cmd interface{}) error {
 }
 
 func main() {
+	f, err := os.Create("debug.log")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	log.SetOutput(f)
+
 	if err := view.JustKeepRunning(func(v *view.View) (view.Client, error) {
 		var w world
 		w.init()
