@@ -94,14 +94,18 @@ func (d *Display) SetRGBA(x, y int, t string, f, b color.RGBA) {
 
 func (d *Display) setrgbai(i int, t string, f, b color.RGBA) {
 	d.Text.Strings[i] = t
-	d.Foreground.Pix[i] = f.R
-	d.Foreground.Pix[i+1] = f.G
-	d.Foreground.Pix[i+2] = f.B
-	d.Foreground.Pix[i+3] = f.A
-	d.Background.Pix[i] = b.R
-	d.Background.Pix[i+1] = b.G
-	d.Background.Pix[i+2] = b.B
-	d.Background.Pix[i+3] = b.A
+	j := i * 4
+	d.Foreground.Pix[j] = f.R
+	d.Background.Pix[j] = b.R
+	j++
+	d.Foreground.Pix[j] = f.G
+	d.Background.Pix[j] = b.G
+	j++
+	d.Foreground.Pix[j] = f.B
+	d.Background.Pix[j] = b.B
+	j++
+	d.Foreground.Pix[j] = f.A
+	d.Background.Pix[j] = b.A
 }
 
 // Draw composes one display over another. The bounds dictate the region of the
