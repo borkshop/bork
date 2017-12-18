@@ -3,8 +3,8 @@ package main
 import (
 	"image"
 	"log"
-	"math/rand"
 	"os"
+	"strconv"
 
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/input"
@@ -32,11 +32,31 @@ func (w *world) init() {
 	w.ui.Perf = &w.perf
 }
 
+func fillDis(dis *display.Display) {
+	sz := dis.Rect.Size()
+	f := display.Colors[7]
+	b := display.Colors[0]
+	// var f, b color.RGBA
+	// f.A = 0xff
+	// b.A = 0xff
+	for y := 0; y < sz.Y; y++ {
+		// f.G++
+		for x := 0; x < sz.X; x++ {
+			// b.B++
+			t := strconv.Itoa(y % 10)
+			dis.SetRGBA(x, y, t, f, b)
+			// dis.Set(x, y, t, nil, nil)
+		}
+	}
+}
+
 func (w *world) generate(sz image.Point) {
 	w.dis = display.New(image.Rectangle{Max: sz})
-	for chs, i := w.table, 0; i < len(w.dis.Text.Strings); i++ {
-		w.dis.Text.Strings[i] = chs[rand.Intn(len(chs))]
-	}
+	fillDis(w.dis)
+
+	// for chs, i := w.table, 0; i < len(w.dis.Text.Strings); i++ {
+	// 	w.dis.Text.Strings[i] = chs[rand.Intn(len(chs))]
+	// }
 }
 
 func (w *world) Render(d *display.Display) error {
