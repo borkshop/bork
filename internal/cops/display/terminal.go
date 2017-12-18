@@ -2,6 +2,7 @@ package display
 
 import (
 	"io"
+	"log"
 	"os"
 
 	"github.com/borkshop/bork/internal/cops/terminal"
@@ -11,22 +12,22 @@ import (
 type Terminal struct {
 	*Display
 
-	out   *os.File
-	term  terminal.Terminal
-	model ColorModel
-	buf   []byte
-	cur   Cursor
+	ColorModel ColorModel
+	out        *os.File
+	term       terminal.Terminal
+	buf        []byte
+	cur        Cursor
 }
 
 // NewTerminal takes control of a terminal, readying it for rendering by
 // putting it in raw mode, clearing it, and hiding the cursor.
 func NewTerminal(out *os.File) (*Terminal, error) {
 	term := &Terminal{
-		out:   out,
-		term:  terminal.New(out.Fd()),
-		model: Model24, // TODO #choices
-		buf:   make([]byte, 0, 65536),
-		cur:   Start,
+		out:        out,
+		term:       terminal.New(out.Fd()),
+		ColorModel: Model24, // TODO #choices
+		buf:        make([]byte, 0, 65536),
+		cur:        Start,
 	}
 	return term, term.open()
 }
@@ -74,10 +75,12 @@ func (term *Terminal) flush() error {
 	}
 	attempts := 5 // TODO sanity check: is this even worthwhile?
 	n, err := term.out.Write(term.buf)
+	log.Printf("display.Terminal flushed %q", term.buf[:n])
 	for attempts > 1 && err == io.ErrShortWrite {
 		attempts--
 		term.buf = term.buf[:copy(term.buf, term.buf[n:])]
 		n, err = term.out.Write(term.buf)
+		log.Printf("display.Terminal flushed %q", term.buf[:n])
 	}
 	term.buf = term.buf[:0]
 	return err
@@ -96,7 +99,7 @@ func (term *Terminal) UpdateSize() error {
 }
 
 func (term Terminal) fullRender(cur Cursor, buf []byte) ([]byte, Cursor) {
-	return Render(buf, cur, term.Display, term.model)
+	return Render(buf, cur, term.Display, term.ColorModel)
 }
 
 // Render the display buffer to the terminal.
