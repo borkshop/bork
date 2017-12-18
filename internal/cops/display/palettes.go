@@ -41,12 +41,17 @@ func init() {
 	for i := 0; i < 8; i++ {
 		Palette3 = append(Palette3, color.Color(Colors[i]))
 	}
+	Model3 = Palette3.Render
+
 	for i := 0; i < 16; i++ {
 		Palette4 = append(Palette4, color.Color(Colors[i]))
 	}
+	Model4 = Palette4.Render
+
 	for i := 0; i < 256; i++ {
 		Palette8 = append(Palette8, color.Color(Colors[i]))
 	}
+	Model8 = Palette8.Render
 
 	colorIndex = make(map[color.RGBA]int, 256)
 	for i := 0; i < 256; i++ {
