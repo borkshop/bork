@@ -10,7 +10,7 @@ import (
 	. "github.com/borkshop/bork/internal/cops/display"
 )
 
-func TestRenderMultiRuneCell(t *testing.T) {
+func TestRender_multiRuneCell(t *testing.T) {
 	whiteHand := "👍🏻"
 	d := New(image.Rect(0, 0, 2, 1))
 	d.Set(0, 0, whiteHand, color.White, color.Transparent)
@@ -21,7 +21,7 @@ func TestRenderMultiRuneCell(t *testing.T) {
 	assert.Equal(t, []byte(whiteHand+"\r\033[1C"+whiteHand), buf)
 }
 
-func TestRenderBlankAndMultiRuneCell(t *testing.T) {
+func TestRender_blankAndMultiRuneCell(t *testing.T) {
 	whiteHand := "👍🏻"
 	d := New(image.Rect(0, 0, 3, 1))
 	d.Set(0, 0, "", color.White, color.Transparent)
@@ -33,7 +33,7 @@ func TestRenderBlankAndMultiRuneCell(t *testing.T) {
 	assert.Equal(t, []byte(" "+whiteHand+"\r\033[2C "), buf)
 }
 
-func TestRenderBlankAndMultiRuneCellOver(t *testing.T) {
+func TestRender_blankAndMultiRuneCellOver(t *testing.T) {
 	whiteHand := "👍🏻"
 	front, back := New2(image.Rect(0, 0, 3, 1))
 	front.Set(0, 0, "", color.White, color.Transparent)
