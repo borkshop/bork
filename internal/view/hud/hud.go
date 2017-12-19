@@ -21,20 +21,23 @@ type HUD struct {
 
 // Render the context into the given display buffer
 func (hud HUD) Render(d *display.Display) {
-	// NOTE: intentionally not a layout item so that the UI elemenst overlay
+	// NOTE: intentionally not a layout item so that the UI elements overlay
 	// the world display.
+
+	// TODO factor out DrawCentered
 	bound, off := d.Rect, image.ZP
 	if n := bound.Dx() - hud.World.Rect.Dx(); n > 0 {
 		bound.Min.X += n / 2
 	} else if n < 0 {
-		off.X += n / 2
+		off.X -= n     // align Mins (expected by draw clipping logic)
+		off.X += n / 2 // center the source window
 	}
 	if n := bound.Dy() - hud.World.Rect.Dy(); n > 0 {
 		bound.Min.Y += n / 2
 	} else if n < 0 {
-		off.Y += n / 2
+		off.Y -= n     // align Mins (expected by draw clipping logic)
+		off.Y += n / 2 // center the source window
 	}
-
 	display.Draw(d, bound, hud.World, off, draw.Over)
 
 	if len(hud.Logs.Buffer) > 0 {
