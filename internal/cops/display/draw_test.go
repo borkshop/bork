@@ -90,6 +90,41 @@ func TestDraw_centered(t *testing.T) {
 				"xxxxxxxxxxxxxxxx",
 			},
 		},
+		{
+			name:    "src > dst",
+			dstSize: image.Pt(16, 8),
+			srcSize: image.Pt(32, 16),
+			expectedT: []string{
+				"5xxxxxxx6xxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"9xxxxxxxAxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+			},
+			expectedF: []string{
+				"2xxxxxxx3xxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"2xxxxxxx3xxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+			},
+			expectedB: []string{
+				"2xxxxxxx2xxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"3xxxxxxx3xxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+				"xxxxxxxxxxxxxxxx",
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dst := New(image.Rectangle{Max: tc.dstSize})
@@ -105,16 +140,19 @@ func TestDraw_centered(t *testing.T) {
 				}
 			}
 
+			// TODO factor out DrawCentered
 			bound, off := dst.Rect, image.ZP
 			if n := bound.Dx() - src.Rect.Dx(); n > 0 {
 				bound.Min.X += n / 2
 			} else if n < 0 {
-				off.X += n / 2
+				off.X -= n     // align Mins (expected by draw clipping logic)
+				off.X += n / 2 // center the source window
 			}
 			if n := bound.Dy() - src.Rect.Dy(); n > 0 {
 				bound.Min.Y += n / 2
 			} else if n < 0 {
-				off.Y += n / 2
+				off.Y -= n     // align Mins (expected by draw clipping logic)
+				off.Y += n / 2 // center the source window
 			}
 			Draw(dst, bound, src, off, draw.Over)
 
