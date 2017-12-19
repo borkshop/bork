@@ -55,6 +55,41 @@ func TestDraw_centered(t *testing.T) {
 				"________________",
 			},
 		},
+		{
+			name:    "src == dst",
+			dstSize: image.Pt(16, 8),
+			srcSize: image.Pt(16, 8),
+			expectedT: []string{
+				"0xxx1xxx2xxx3xxx",
+				"xxxxxxxxxxxxxxxx",
+				"4xxx5xxx6xxx7xxx",
+				"xxxxxxxxxxxxxxxx",
+				"8xxx9xxxAxxxBxxx",
+				"xxxxxxxxxxxxxxxx",
+				"CxxxDxxxExxxFxxx",
+				"xxxxxxxxxxxxxxxx",
+			},
+			expectedF: []string{
+				"1xxx2xxx3xxx4xxx",
+				"xxxxxxxxxxxxxxxx",
+				"1xxx2xxx3xxx4xxx",
+				"xxxxxxxxxxxxxxxx",
+				"1xxx2xxx3xxx4xxx",
+				"xxxxxxxxxxxxxxxx",
+				"1xxx2xxx3xxx4xxx",
+				"xxxxxxxxxxxxxxxx",
+			},
+			expectedB: []string{
+				"1xxx1xxx1xxx1xxx",
+				"xxxxxxxxxxxxxxxx",
+				"2xxx2xxx2xxx2xxx",
+				"xxxxxxxxxxxxxxxx",
+				"3xxx3xxx3xxx3xxx",
+				"xxxxxxxxxxxxxxxx",
+				"4xxx4xxx4xxx4xxx",
+				"xxxxxxxxxxxxxxxx",
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dst := New(image.Rectangle{Max: tc.dstSize})
