@@ -98,9 +98,14 @@ func (t *Textile) StringsOffset(x, y int) int {
 	return (y-t.Rect.Min.Y)*t.Stride + (x - t.Rect.Min.X)
 }
 
-// Lines returns a slice of row strings from the textile, filling in any empty
+// Lines returns a slice of row strings from the textile.
+func (t Textile) Lines() []string {
+	return t.LinesWithFill(" ")
+}
+
+// LinesWithFill returns a slice of row strings from the textile, filling in any empty
 // strings with the given one.
-func (t Textile) Lines(fillZero string) []string {
+func (t Textile) LinesWithFill(fillZero string) []string {
 	lines := make([]string, t.Rect.Max.Y)
 	line := make([]byte, 0, t.Rect.Dx())
 	y := t.Rect.Min.Y

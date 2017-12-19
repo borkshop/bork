@@ -39,7 +39,7 @@ func TestDraw_centered(t *testing.T) {
 		"____xxxxxxxx____",
 		"________________",
 		"________________",
-	}, dst.Text.Lines("0"))
+	}, dst.Text.LinesWithFill("0"))
 
 	assert.Equal(t, []string{
 		"................",
