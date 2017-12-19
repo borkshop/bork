@@ -19,6 +19,8 @@ type Terminal struct {
 
 // New returns a Terminal for the given file descriptor, capable of restoring
 // that terminal to its current state.
+//
+// FIXME New() *T; value can be Make() T or T.Init()
 func New(fd uintptr) Terminal {
 	t := Terminal{fd: fd}
 	termios.Tcgetattr(fd, &t.old)

@@ -13,9 +13,11 @@
 package display
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
+	"unicode/utf8"
 
 	"github.com/borkshop/bork/internal/cops/textile"
 )
@@ -81,8 +83,12 @@ func (d *Display) Clear(r image.Rectangle) {
 // the given position.
 func (d *Display) Set(x, y int, t string, f, b color.Color) {
 	d.Text.Set(x, y, t)
-	d.Foreground.Set(x, y, f)
-	d.Background.Set(x, y, b)
+	if f != nil {
+		d.Foreground.Set(x, y, f)
+	}
+	if b != nil {
+		d.Background.Set(x, y, b)
+	}
 }
 
 // SetRGBA is a faster Set.
@@ -91,6 +97,32 @@ func (d *Display) SetRGBA(x, y int, t string, f, b color.RGBA) {
 		d.setrgbai(i, t, f, b)
 	}
 }
+
+// MergeRGBA sets the given string and colors if they are
+// non-empty and not transparent respectively.
+func (d *Display) MergeRGBA(x, y int, t string, f, b color.RGBA) {
+	if i := d.Text.StringsOffset(x, y); i >= 0 && i < len(d.Text.Strings) {
+		if t != "" {
+			d.Text.Strings[i] = t
+		}
+		if f.A > 0 {
+			// TODO blend < 0xff
+			d.Foreground.Pix[i] = f.R
+			d.Foreground.Pix[i+1] = f.G
+			d.Foreground.Pix[i+2] = f.B
+			d.Foreground.Pix[i+3] = f.A
+		}
+		if b.A > 0 {
+			// TODO blend < 0xff N.B also over Foreground
+			d.Background.Pix[i] = b.R
+			d.Background.Pix[i+1] = b.G
+			d.Background.Pix[i+2] = b.B
+			d.Background.Pix[i+3] = b.A
+		}
+	}
+}
+
+// TODO func (d *Display) Merge(x, y, t, f, b)
 
 func (d *Display) setrgbai(i int, t string, f, b color.RGBA) {
 	d.Text.Strings[i] = t
@@ -177,69 +209,84 @@ func (d *Display) Bounds() image.Rectangle {
 	return d.Rect
 }
 
-// Render appends ANSI escape sequences to a byte slice to overwrite an entire
-// terminal window, using the best matching colors in the terminal color model.
-func Render(buf []byte, cur Cursor, over *Display, renderColor ColorModel) ([]byte, Cursor) {
-	return RenderOver(buf, cur, over, nil, renderColor)
+func unpackColor(c color.Color) (rgba color.RGBA, ok bool) {
+	if c != nil {
+		r, g, b, a := c.RGBA()
+		rgba.R = uint8(r >> 8)
+		rgba.G = uint8(g >> 8)
+		rgba.B = uint8(b >> 8)
+		rgba.A = uint8(a >> 8)
+		ok = true
+	}
+	return rgba, ok
 }
 
-// RenderOver appends ANSI escape sequences to a byte slice to update a
-// terminal display to look like the front model, skipping cells that are the
-// same in the back model, using escape sequences and the nearest matching
-// colors in the given color model.
-func RenderOver(buf []byte, cur Cursor, over, under *Display, renderColor ColorModel) ([]byte, Cursor) {
-	vp := over.Rect
-	if under != nil {
-		vp = over.Rect.Intersect(under.Rect)
+// WriteString writes a string into the display at the given position,
+// returning how many cells were affected.
+//
+// NOTE does not support multi-rune glyphs
+func (d *Display) WriteString(x, y int, f, b color.Color, mess string, args ...interface{}) int {
+	fRGBA, haveF := unpackColor(f)
+	bRGBA, haveB := unpackColor(b)
+	if len(args) > 0 {
+		mess = fmt.Sprintf(mess, args...)
 	}
-	pt := vp.Min
-	i := over.Text.StringsOffset(pt.X, pt.Y)
-	j := 0
-	if under != nil {
-		j = under.Text.StringsOffset(pt.X, pt.Y)
+	i := d.Text.StringsOffset(x, y)
+	j := i
+	for dx := d.Rect.Dx(); len(mess) > 0 && x < dx; x, j = x+1, j+1 {
+		_, n := utf8.DecodeRuneInString(mess)
+		d.Text.Strings[j] = mess[:n]
+		mess = mess[n:]
+		k := j * 4
+		if haveF {
+			d.Foreground.Pix[k] = fRGBA.R
+			d.Foreground.Pix[k+1] = fRGBA.G
+			d.Foreground.Pix[k+2] = fRGBA.B
+			d.Foreground.Pix[k+3] = fRGBA.A
+		}
+		if haveB {
+			d.Background.Pix[k] = bRGBA.R
+			d.Background.Pix[k+1] = bRGBA.G
+			d.Background.Pix[k+2] = bRGBA.B
+			d.Background.Pix[k+3] = bRGBA.A
+		}
 	}
-	buf, cur = cur.Go(buf, pt)
-	for i < len(over.Text.Strings) {
-		var ut string
-		var uf, ub color.RGBA
-		ot, of, ob := over.rgbaati(i)
-		if under != nil {
-			ut, uf, ub = under.rgbaati(j)
-		}
-		if len(ot) == 0 {
-			ot = " "
-		}
-		if len(ut) == 0 {
-			ut = " "
-		}
-		if ot != ut || of != uf || ob != ub {
-			if dy := pt.Y - cur.Position.Y; dy > 0 {
-				buf, cur = cur.linedown(buf, dy)
-			}
-			if cur.Position.X < 0 {
-				buf = append(buf, "\r"...)
-				cur.Position.X = 0
-				buf, cur = cur.right(buf, pt.X)
-			} else if dx := pt.X - cur.Position.X; dx > 0 {
-				buf, cur = cur.right(buf, dx)
-			}
-			buf, cur = renderColor(buf, cur, of, ob)
-			buf, cur = cur.WriteGlyph(buf, ot)
-			if under != nil {
-				under.setrgbai(j, ot, of, ob)
-			}
-		}
-		pt.X++
-		if pt.X >= vp.Max.X {
-			pt.X = vp.Min.X
-			pt.Y++
-		}
-		if pt.Y >= vp.Max.Y {
-			break
-		}
-		i++
-		j++
+	return j - i
+}
+
+// WriteStringRTL is like WriteString except it goes Right-To-Left (in both the
+// string and the diplay).
+//
+// NOTE does not support multi-rune glyphs
+func (d *Display) WriteStringRTL(x, y int, f, b color.Color, mess string, args ...interface{}) int {
+	fRGBA, haveF := unpackColor(f)
+	bRGBA, haveB := unpackColor(b)
+	if len(args) > 0 {
+		mess = fmt.Sprintf(mess, args...)
 	}
-	buf, cur = cur.Reset(buf)
-	return buf, cur
+	if x > d.Rect.Max.X {
+		x = d.Rect.Max.X - 1
+	}
+	i := d.Text.StringsOffset(x, y)
+	j := i
+	for ; len(mess) > 0 && x >= 0; x, j = x-1, j-1 {
+		_, n := utf8.DecodeLastRuneInString(mess)
+		m := len(mess) - n
+		d.Text.Strings[j] = mess[m:]
+		mess = mess[:m]
+		k := j * 4
+		if haveF {
+			d.Foreground.Pix[k] = fRGBA.R
+			d.Foreground.Pix[k+1] = fRGBA.G
+			d.Foreground.Pix[k+2] = fRGBA.B
+			d.Foreground.Pix[k+3] = fRGBA.A
+		}
+		if haveB {
+			d.Background.Pix[k] = bRGBA.R
+			d.Background.Pix[k+1] = bRGBA.G
+			d.Background.Pix[k+2] = bRGBA.B
+			d.Background.Pix[k+3] = bRGBA.A
+		}
+	}
+	return i - j
 }

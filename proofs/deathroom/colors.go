@@ -1,21 +1,29 @@
 package main
 
 import (
+	"image"
+	"image/color"
 	"math/rand"
 
-	termbox "github.com/nsf/termbox-go"
-
+	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/ecs"
 	"github.com/borkshop/bork/internal/markov"
-	"github.com/borkshop/bork/internal/point"
 )
 
+func pullColors(ix ...int) []color.RGBA {
+	r := make([]color.RGBA, 0, len(ix))
+	for _, i := range ix {
+		r = append(r, display.Colors[i])
+	}
+	return r
+}
+
 var (
-	aiColors    = []termbox.Attribute{124, 160, 196, 202, 208, 214}
-	soulColors  = []termbox.Attribute{19, 20, 21, 27, 33, 39}
-	itemColors  = []termbox.Attribute{22, 23, 29, 35, 41, 47}
-	wallColors  = []termbox.Attribute{233, 234, 235, 236, 237, 238, 239}
-	floorColors = []termbox.Attribute{232, 233, 234}
+	aiColors    = pullColors(124, 160, 196, 202, 208, 214)
+	soulColors  = pullColors(19, 20, 21, 27, 33, 39)
+	itemColors  = pullColors(22, 23, 29, 35, 41, 47)
+	wallColors  = pullColors(233, 234, 235, 236, 237, 238, 239)
+	floorColors = pullColors(232, 233, 234)
 
 	wallTable  = newColorTable()
 	floorTable = newColorTable()
@@ -33,15 +41,15 @@ const (
 type colorTable struct {
 	ecs.Core
 	*markov.Table
-	color  []termbox.Attribute
-	lookup map[termbox.Attribute]ecs.EntityID
+	color  []color.RGBA
+	lookup map[color.RGBA]ecs.EntityID
 }
 
 func newColorTable() *colorTable {
 	ct := &colorTable{
 		// TODO: consider eliminating the padding for EntityID(0)
-		color:  []termbox.Attribute{0},
-		lookup: make(map[termbox.Attribute]ecs.EntityID, 1),
+		color:  []color.RGBA{color.RGBA{0, 0, 0, 0}},
+		lookup: make(map[color.RGBA]ecs.EntityID, 1),
 	}
 	ct.Table = markov.NewTable(&ct.Core)
 	ct.RegisterAllocator(componentTableColor, ct.allocTableColor)
@@ -50,16 +58,16 @@ func newColorTable() *colorTable {
 }
 
 func (ct *colorTable) allocTableColor(id ecs.EntityID, t ecs.ComponentType) {
-	ct.color = append(ct.color, 0)
+	ct.color = append(ct.color, ct.color[0])
 }
 
 func (ct *colorTable) destroyTableColor(id ecs.EntityID, t ecs.ComponentType) {
 	delete(ct.lookup, ct.color[id])
-	ct.color[id] = 0
+	ct.color[id] = ct.color[0]
 }
 
 func (ct *colorTable) addLevelTransitions(
-	colors []termbox.Attribute,
+	colors []color.RGBA,
 	zeroOn, zeroUp int,
 	oneDown, oneOn, oneUp int,
 ) {
@@ -85,7 +93,7 @@ func (ct *colorTable) addLevelTransitions(
 	}
 }
 
-func (ct *colorTable) toEntity(a termbox.Attribute) ecs.Entity {
+func (ct *colorTable) toEntity(a color.RGBA) ecs.Entity {
 	if id, def := ct.lookup[a]; def {
 		return ct.Ref(id)
 	}
@@ -96,14 +104,14 @@ func (ct *colorTable) toEntity(a termbox.Attribute) ecs.Entity {
 	return ent
 }
 
-func (ct *colorTable) toColor(ent ecs.Entity) (termbox.Attribute, bool) {
+func (ct *colorTable) toColor(ent ecs.Entity) (color.RGBA, bool) {
 	if !ent.Type().HasAll(componentTableColor) {
-		return 0, false
+		return ct.color[0], false
 	}
 	return ct.color[ent.ID()], true
 }
 
-func (ct *colorTable) addTransition(a, b termbox.Attribute, w int) (ae, be ecs.Entity) {
+func (ct *colorTable) addTransition(a, b color.RGBA, w int) (ae, be ecs.Entity) {
 	ae, be = ct.toEntity(a), ct.toEntity(b)
 	ct.AddTransition(ae, be, w)
 	return
@@ -111,15 +119,15 @@ func (ct *colorTable) addTransition(a, b termbox.Attribute, w int) (ae, be ecs.E
 
 func (ct *colorTable) genTile(
 	rng *rand.Rand,
-	box point.Box,
-	f func(point.Point, termbox.Attribute),
+	box image.Rectangle,
+	f func(image.Point, color.RGBA),
 ) {
 	// TODO: better 2d generation
 	last := floorTable.Ref(1)
-	var pos point.Point
-	for pos.Y = box.TopLeft.Y + 1; pos.Y < box.BottomRight.Y; pos.Y++ {
+	var pos image.Point
+	for pos.Y = box.Min.Y + 1; pos.Y < box.Max.Y; pos.Y++ {
 		first := last
-		for pos.X = box.TopLeft.X + 1; pos.X < box.BottomRight.X; pos.X++ {
+		for pos.X = box.Min.X + 1; pos.X < box.Max.X; pos.X++ {
 			c, _ := floorTable.toColor(last)
 			f(pos, c)
 			last = floorTable.ChooseNext(rng, last)
