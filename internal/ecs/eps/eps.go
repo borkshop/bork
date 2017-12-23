@@ -91,6 +91,61 @@ func (eps *EPS) At(pt image.Point) []ecs.Entity {
 	return eps.resEnts
 }
 
+type epsIterator struct {
+	eps *EPS
+	id  ecs.EntityID
+	i   int
+}
+
+// Iter returns an entity iterator that iterates in postition-local order:
+// entities that have the same position will be contiguous, and entities that
+// are near will be near in iteration order.
+//
+// Iteration stops if the EPS is invalidated during iteration (by changing a
+// position, or creating a new position component). After such a halt, the
+// iterator may be reset, re-indexing the EPS and starting iteration over again
+// with the update position data.
+func (eps *EPS) Iter() ecs.Iterator {
+	eps.reindex()
+	return &epsIterator{eps, 0, 0}
+}
+
+func (epi *epsIterator) Reset() {
+	epi.eps.reindex()
+	epi.id = 0
+	epi.i = 0
+}
+
+func (epi *epsIterator) Next() bool {
+	epi.id = 0
+	if epi.eps.inval > 0 {
+		return false
+	}
+	for n := len(epi.eps.ix.ix); epi.i < n; epi.i++ {
+		if xi := epi.eps.ix.ix[epi.i]; epi.eps.ix.flg[xi]&epsDef != 0 {
+			epi.id = ecs.EntityID(epi.eps.ix.ix[epi.i] + 1)
+			epi.i++
+			return true
+		}
+	}
+	return false
+}
+
+func (epi epsIterator) Count() (n int) {
+	if epi.eps.inval == 0 {
+		for n := len(epi.eps.ix.ix); epi.i < n; epi.i++ {
+			if xi := epi.eps.ix.ix[epi.i]; epi.eps.ix.flg[xi]&epsDef != 0 {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+func (epi *epsIterator) ID() ecs.EntityID        { return epi.id }
+func (epi *epsIterator) Type() ecs.ComponentType { return epi.eps.core.Type(epi.ID()) }
+func (epi *epsIterator) Entity() ecs.Entity      { return epi.eps.core.Ref(epi.ID()) }
+
 // TODO: NN queries, range queries, etc
 // func (eps *EPS) Near(pt image.Point, d uint) []ecs.Entity
 // func (eps *EPS) Within(box image.Rectangle) []ecs.Entity
@@ -221,6 +276,7 @@ type subindex struct {
 func (ix index) Len() int      { return len(ix.ix) }
 func (ix index) Swap(i, j int) { ix.ix[i], ix.ix[j] = ix.ix[j], ix.ix[i] }
 func (ix index) Less(i, j int) bool {
+	// sort by key, collecting undefined to the left
 	xi, xj := ix.ix[i], ix.ix[j]
 	if ix.flg[xi]&epsDef == 0 {
 		return ix.flg[xj]&epsDef != 0

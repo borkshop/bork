@@ -1,7 +1,9 @@
 package eps_test
 
 import (
+	"fmt"
 	"image"
+	"math/rand"
 	"sort"
 	"testing"
 
@@ -54,6 +56,12 @@ func (tps *tps) noms(ents []ecs.Entity) []string {
 		ss[i] = tps.nom[ent.ID()]
 	}
 	return ss
+}
+
+func (tps *tps) addNomXY(nom string, x, y int) {
+	ent := tps.AddEntity(tpsPos | tpsNom)
+	tps.nom[ent.ID()] = nom
+	tps.pos.Set(ent, image.Pt(x, y))
 }
 
 func (tps *tps) load(xx ...interface{}) {
@@ -176,4 +184,54 @@ func TestEPS(t *testing.T) {
 		}
 	})
 
+}
+
+func TestEPS_Iter(t *testing.T) {
+	// test iterating a small set of points in several orders
+	rng := rand.New(rand.NewSource(0))
+
+	nxys := []struct {
+		nom  string
+		x, y int
+	}{
+		{"0", 0, 0},
+		{"a1", -1, -1},
+		{"b1", 1, -1},
+		{"c1", 1, 1},
+		{"d1", -1, 1},
+		{"a2", -1, -1},
+		{"b2", 1, -1},
+		{"c2", 1, 1},
+		{"d2", -1, 1},
+	}
+
+	for k := 0; k < 10; k++ {
+		t.Run(fmt.Sprintf("shuffle %v", k), func(t *testing.T) {
+			for i, m := 0, len(nxys)-2; i < m; i++ {
+				j := rng.Intn(len(nxys))
+				nxys[i], nxys[j] = nxys[j], nxys[i]
+			}
+
+			var tps tps
+			tps.init()
+			for _, nxy := range nxys {
+				tps.addNomXY(nxy.nom, nxy.x, nxy.y)
+			}
+
+			seen := make(map[image.Point]struct{})
+			var last image.Point
+			for it := tps.pos.Iter(); it.Next(); {
+				pt, def := tps.pos.Get(it.Entity())
+				if !def {
+					continue
+				}
+				if _, have := seen[pt]; !have {
+					seen[pt] = struct{}{}
+					last = pt
+					continue
+				}
+				assert.Equal(t, last, pt, "expected repeat points to be contiguous")
+			}
+		})
+	}
 }
