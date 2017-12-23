@@ -24,9 +24,9 @@ type typeClauseOpt struct{ TypeClause }
 
 func (tco typeClauseOpt) apply(rel *Relation, cur Cursor) Cursor {
 	if cur == nil {
-		return &iterCursor{
+		return &coreIterCursor{
 			rel: rel,
-			it:  rel.Iter(tco.TypeClause),
+			it:  *(rel.Iter(tco.TypeClause).(*coreIterator)),
 		}
 	}
 
@@ -41,7 +41,7 @@ func (tco typeClauseOpt) filter(cur Cursor) bool { return tco.test(cur.R().Type(
 
 func (tco typeClauseOpt) justApply(rel *Relation, cur Cursor) Cursor {
 	switch impl := cur.(type) {
-	case *iterCursor:
+	case *coreIterCursor:
 		impl.it.tcl = and(impl.it.tcl, tco.TypeClause)
 		return impl
 
@@ -112,19 +112,19 @@ func (lko lookupBOpt) filter(cur Cursor) bool {
 	return false
 }
 
-type iterCursor struct {
+type coreIterCursor struct {
 	rel *Relation
-	it  Iterator
+	it  coreIterator
 	r   Entity
 	a   Entity
 	b   Entity
 }
 
-func (cur iterCursor) Count() int {
+func (cur coreIterCursor) Count() int {
 	return cur.it.Count()
 }
 
-func (cur *iterCursor) Scan() bool {
+func (cur *coreIterCursor) Scan() bool {
 	if cur.it.Next() {
 		i := cur.it.ID() - 1
 		cur.r = cur.it.Entity()
@@ -138,9 +138,9 @@ func (cur *iterCursor) Scan() bool {
 	return false
 }
 
-func (cur iterCursor) R() Entity { return cur.r }
-func (cur iterCursor) A() Entity { return cur.a }
-func (cur iterCursor) B() Entity { return cur.b }
+func (cur coreIterCursor) R() Entity { return cur.r }
+func (cur coreIterCursor) A() Entity { return cur.a }
+func (cur coreIterCursor) B() Entity { return cur.b }
 
 // Filter is a CursorOpt that applies a filtering
 // predicate function to a cursor. NOTE this the
@@ -154,8 +154,8 @@ func (f Filter) apply(rel *Relation, cur Cursor) Cursor {
 	}
 
 	switch impl := cur.(type) {
-	case *iterCursor:
-		return iterFilterCursor{iterCursor: *impl}.with(f)
+	case *coreIterCursor:
+		return iterFilterCursor{coreIterCursor: *impl}.with(f)
 
 	case *iterFilterCursor:
 		return impl.with(f)
@@ -169,7 +169,7 @@ func (f Filter) apply(rel *Relation, cur Cursor) Cursor {
 }
 
 type iterFilterCursor struct {
-	iterCursor
+	coreIterCursor
 	fs []func(Cursor) bool
 }
 
@@ -190,7 +190,7 @@ func (fc filterCursor) with(f func(Cursor) bool) Cursor {
 
 func (ifc *iterFilterCursor) Scan() bool {
 scan:
-	for ifc.iterCursor.Scan() {
+	for ifc.coreIterCursor.Scan() {
 		for _, f := range ifc.fs {
 			if !f(ifc) {
 				continue scan
@@ -203,7 +203,7 @@ scan:
 
 func (ifc iterFilterCursor) Count() (n int) {
 scan:
-	for ifc.iterCursor.Scan() {
+	for ifc.coreIterCursor.Scan() {
 		for _, f := range ifc.fs {
 			if !f(&ifc) {
 				continue scan
