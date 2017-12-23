@@ -72,7 +72,7 @@ func (co *Core) Ref(id EntityID) Entity {
 // so if Cap() == Len()).
 func (co *Core) AddEntity(nt ComponentType) Entity {
 	ent := Entity{co, co.allocate()}
-	co.setType(ent.id, nt)
+	co.SetType(ent.id, nt)
 	return ent
 }
 
@@ -81,7 +81,7 @@ func (co *Core) AddEntity(nt ComponentType) Entity {
 func (ent Entity) Add(t ComponentType) {
 	if ent.co != nil && ent.id > 0 {
 		old := ent.co.types[ent.id-1]
-		ent.co.setType(ent.id, old|t)
+		ent.co.SetType(ent.id, old|t)
 	}
 }
 
@@ -90,7 +90,7 @@ func (ent Entity) Add(t ComponentType) {
 func (ent Entity) Delete(t ComponentType) {
 	if ent.co != nil && ent.id > 0 {
 		old := ent.co.types[ent.id-1]
-		ent.co.setType(ent.id, old & ^t)
+		ent.co.SetType(ent.id, old & ^t)
 	}
 }
 
@@ -98,7 +98,7 @@ func (ent Entity) Delete(t ComponentType) {
 // the prior type.`
 func (ent Entity) Destroy() {
 	if ent.co != nil && ent.id > 0 {
-		ent.co.setType(ent.id, NoType)
+		ent.co.SetType(ent.id, NoType)
 	}
 }
 
@@ -106,7 +106,7 @@ func (ent Entity) Destroy() {
 // appropriate.
 func (ent Entity) SetType(t ComponentType) {
 	if ent.co != nil && ent.id > 0 {
-		ent.co.setType(ent.id, t)
+		ent.co.SetType(ent.id, t)
 	}
 }
 
@@ -127,7 +127,8 @@ func (co *Core) allocate() EntityID {
 	return id
 }
 
-func (co *Core) setType(id EntityID, new ComponentType) {
+// SetType changes an entity's type, calling any relevant lifecycle functions.
+func (co *Core) SetType(id EntityID, new ComponentType) {
 	i := id - 1
 	old := co.types[i]
 	if old == new {
