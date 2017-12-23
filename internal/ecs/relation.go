@@ -66,13 +66,13 @@ func (rel *Relation) destroyRel(id EntityID, t ComponentType) {
 	i := int(id) - 1
 	if aid := rel.aids[i]; aid != 0 {
 		if rel.aFlag&RelationCascadeDestroy != 0 {
-			rel.aCore.setType(aid, NoType)
+			rel.aCore.SetType(aid, NoType)
 		}
 		rel.aids[i] = 0
 	}
 	if bid := rel.bids[i]; bid != 0 {
 		if rel.bFlag&RelationCascadeDestroy != 0 {
-			rel.bCore.setType(bid, NoType)
+			rel.bCore.SetType(bid, NoType)
 		}
 		rel.bids[i] = 0
 	}
@@ -81,7 +81,7 @@ func (rel *Relation) destroyRel(id EntityID, t ComponentType) {
 func (rel *Relation) destroyFromA(aid EntityID, t ComponentType) {
 	for i := range rel.types {
 		if rel.aids[i] == aid {
-			rel.setType(EntityID(i+1), NoType)
+			rel.SetType(EntityID(i+1), NoType)
 		}
 	}
 }
@@ -89,7 +89,7 @@ func (rel *Relation) destroyFromA(aid EntityID, t ComponentType) {
 func (rel *Relation) destroyFromB(bid EntityID, t ComponentType) {
 	for i := range rel.types {
 		if rel.bids[i] == bid {
-			rel.setType(EntityID(i+1), NoType)
+			rel.SetType(EntityID(i+1), NoType)
 		}
 	}
 }

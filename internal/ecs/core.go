@@ -71,7 +71,7 @@ func (co *Core) Empty() bool {
 func (co *Core) Clear() {
 	for i, t := range co.types {
 		if t != NoType {
-			co.setType(EntityID(i+1), NoType)
+			co.SetType(EntityID(i+1), NoType)
 		}
 	}
 }
