@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/borkshop/bork/internal/ecs"
+	"github.com/borkshop/bork/internal/point"
 )
 
 // TODO support movement on top of or within an EPS:
@@ -41,6 +42,25 @@ func (eps *EPS) Init(core *ecs.Core, t ecs.ComponentType) {
 	eps.core.RegisterAllocator(eps.t, eps.alloc)
 	eps.core.RegisterCreator(eps.t, eps.create)
 	eps.core.RegisterDestroyer(eps.t, eps.destroy)
+}
+
+// Bounds returns the bounding box containing all defined points.
+func (eps *EPS) Bounds() (box image.Rectangle) {
+	// TODO exploit the z-curve to do better and/or cache/pre-compute
+	it := eps.Iter()
+	for it.Next() {
+		if i := it.ID() - 1; eps.ix.flg[i]&epsDef != 0 {
+			box.Min = eps.pt[i]
+			box.Max = box.Min.Add(image.Pt(1, 1))
+			break
+		}
+	}
+	for it.Next() {
+		if i := it.ID() - 1; eps.ix.flg[i]&epsDef != 0 {
+			box = rectangle.Capture(box, eps.pt[i])
+		}
+	}
+	return box
 }
 
 // Get the position of an entity; the bool argument is true only if
