@@ -127,6 +127,9 @@ func (co *Core) allocate() EntityID {
 	return id
 }
 
+// Type returns the entity's type.
+func (co *Core) Type(id EntityID) ComponentType { return co.types[id-1] }
+
 // SetType changes an entity's type, calling any relevant lifecycle functions.
 func (co *Core) SetType(id EntityID, new ComponentType) {
 	i := id - 1
