@@ -73,9 +73,7 @@ func (eps *EPS) Set(ent ecs.Entity, pt image.Point) {
 //
 // TODO provide a struct that localizes that sharing.
 func (eps *EPS) At(pt image.Point) []ecs.Entity {
-	if eps.inval > 0 {
-		eps.reindex()
-	}
+	eps.reindex()
 	k := zorderKey(pt)
 	i, m := eps.ix.searchRun(k)
 	if m == 0 {
@@ -130,6 +128,9 @@ const (
 )
 
 func (eps *EPS) reindex() {
+	if eps.inval <= 0 {
+		return
+	}
 	// TODO: evaluate full-sort threshold
 	if forceReSort || eps.inval > 3*len(eps.ix.ix)/4 {
 		sort.Sort(eps.ix)
