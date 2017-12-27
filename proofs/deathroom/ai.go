@@ -116,7 +116,7 @@ func (w *world) scoreAIGoal(ai, goal ecs.Entity) int {
 func (w *world) chooseAIGoal(ai ecs.Entity) ecs.Entity {
 	// TODO: doesn't always cause progress, get stuck on the edge sometimes
 	goal, sum := ecs.NilEntity, 0
-	for it := w.Iter(ecs.And(wcSolid.All(), wcBody.NotAll())); it.Next(); {
+	for it := w.Iter(wcSolid.All(), wcBody.NotAll()); it.Next(); {
 		if score := w.scoreAIGoal(ai, it.Entity()); score > 0 {
 			sum += score
 			if sum <= 0 || w.rng.Intn(sum) < score {

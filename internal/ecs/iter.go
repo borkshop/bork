@@ -1,8 +1,17 @@
 package ecs
 
-// Iter returns a new iterator over the Core's entities which satisfy the
-// given TypeClause.
-func (co *Core) Iter(tcl TypeClause) Iterator { return Iterator{co, -1, tcl} }
+// Iter returns a new iterator over the Core's entities which satisfy all of
+// given TypeClause(s).
+func (co *Core) Iter(tcls ...TypeClause) Iterator {
+	switch len(tcls) {
+	case 0:
+		return &coreIterator{co, -1, TrueClause}
+	case 1:
+		return &coreIterator{co, -1, tcls[0]}
+	default:
+		return &coreIterator{co, -1, And(tcls...)}
+	}
+}
 
 // Iterator points into a Core's entities, iterating over them with optional
 // type filter criteria.

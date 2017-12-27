@@ -556,7 +556,7 @@ func (w *world) renderViewport(max point.Point) view.Grid {
 	zVals := make([]uint8, len(grid.Data))
 
 	// TODO: use an pos range query
-	for it := w.Iter(ecs.And(wcPosition.All(), (wcGlyph | wcBG).Any())); it.Next(); {
+	for it := w.Iter(wcPosition.All(), (wcGlyph | wcBG).Any()); it.Next(); {
 		pos, _ := w.pos.Get(it.Entity())
 		pos = pos.Add(offset)
 		gi := pos.Y*grid.Size.X + pos.X

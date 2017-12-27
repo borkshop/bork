@@ -81,7 +81,7 @@ func TestBody_sever_vital(t *testing.T) {
 			severed := bo.sever(t.Logf, part)
 			require.NotNil(t, severed)
 
-			it = severed.Iter(ecs.TrueClause)
+			it = severed.Iter()
 			got := make([]string, 0, it.Count())
 			for it.Next() {
 				got = append(got, severed.DescribePart(it.Entity()))
