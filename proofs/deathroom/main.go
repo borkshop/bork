@@ -443,7 +443,7 @@ func (w *world) maybeSpawn() {
 	}
 
 	totalHP, totalDmg, combatCount := 0, 0, 0
-	for it := w.Iter(ecs.And((wcSolid | wcBody | wcInput).All(), wcWaiting.NotAll())); it.Next(); {
+	for it := w.Iter((wcSolid | wcBody | wcInput).All(), wcWaiting.NotAll()); it.Next(); {
 		combatCount++
 		bo := w.bodies[it.ID()]
 		if it.Type().HasAll(wcSoul) {

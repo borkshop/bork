@@ -203,10 +203,7 @@ func (wrk *workers) unassigned() ecs.Iterator {
 }
 
 func (jb *jobs) unassigned() ecs.Iterator {
-	return jb.Iter(ecs.And(
-		(jobInfo | jobWork).All(),
-		jobAssigned.NotAny(),
-	))
+	return jb.Iter((jobInfo | jobWork).All(), jobAssigned.NotAny())
 }
 
 func (amt *assignment) assign() {

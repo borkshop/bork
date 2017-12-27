@@ -49,7 +49,7 @@ func (w *world) init() {
 
 func (w *world) dump() {
 	fmt.Printf("now=%v\n", w.time.Now())
-	for it := w.Iter(ecs.TrueClause); it.Next(); {
+	for it := w.Iter(); it.Next(); {
 		if it.Type() != ecs.NoType {
 			fmt.Printf("- [%v]<%v>\n", it.ID(), it.Type())
 		}
