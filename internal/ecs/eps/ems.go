@@ -204,14 +204,18 @@ func (mov *Moves) processPendingMove(uc *ecs.UpsertCursor) {
 
 	t, ent := move.Type(), uc.A()
 	if !dir.Eq(image.ZP) {
-		hit, mag := mov.runMove(ent, point.Sign(dir), mag, limit)
+		var hit ecs.Entity
+		hit, mag = mov.runMove(ent, point.Sign(dir), mag, limit)
 		if hit != ecs.NilEntity {
 			t = t & ^movRelPending | movRelCollide
-			mov.SetMag(uc.Emit(t, ent, hit), mag)
+		} else if mag <= 0 {
 			return
 		}
+		move = uc.Emit(t, ent, hit)
+	} else {
+		move = uc.Emit(t, ent, ent)
 	}
-	mov.SetMag(uc.Emit(t, ent, ent), mag)
+	mov.SetMag(move, mag)
 }
 
 func (mov *Moves) runMove(
