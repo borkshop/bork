@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"log"
 
+	"github.com/borkshop/bork/internal/ecs"
 	"github.com/gdamore/tcell"
 	"github.com/gdamore/tcell/views"
 )
@@ -48,7 +50,44 @@ func reset() {
 	world.Process()
 }
 
+type fieldWriter struct {
+	*bytes.Buffer
+	any bool
+}
+
+func (fw *fieldWriter) Printf(mess string, args ...interface{}) {
+	if fw.any {
+		fw.WriteRune(' ')
+	}
+	fw.any = true
+	fmt.Fprintf(fw.Buffer, mess, args...)
+}
+
 func main() {
+	const showPlayerEntID = false
+	world.AddProcFunc(func() {
+		var buf bytes.Buffer
+		for it := world.Iter(wcPlayerControl.All()); it.Next(); {
+			ent := it.Entity()
+			if buf.Len() > 0 {
+				buf.WriteRune(' ')
+			}
+			buf.WriteRune('<')
+			fw := fieldWriter{Buffer: &buf}
+			if showPlayerEntID {
+				fw.Printf("[%v]", ent.ID())
+			}
+			if pt, def := world.pos.Get(ent); def {
+				fw.Printf("@%v", pt)
+			}
+			if move := world.moves.GetPendingMove(ent); move != ecs.NilEntity {
+				fw.Printf("mag:%v", world.moves.Mag(move))
+			}
+			buf.WriteRune('>')
+		}
+		hud.status.SetLeft(buf.String())
+	})
+
 	if err := func() error {
 		scr, err := tcell.NewScreen()
 		if err != nil {
