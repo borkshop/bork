@@ -100,11 +100,11 @@ func (mov *Moves) Dir(move ecs.Entity) (image.Point, bool) {
 }
 
 // SetMag sets the magnitude associated with the given move relation; 0 removes
-// the magnitude component.
+// the magnitude component (and destroys the move if it is pending).
 func (mov *Moves) SetMag(move ecs.Entity, mag int) {
 	if mag == 0 {
 		move.Delete(movMag)
-		if move.Type() == movRelPending || move.Type() == movRelCollide {
+		if move.Type().HasAll(movRelPending) {
 			move.Destroy()
 		}
 	} else {
