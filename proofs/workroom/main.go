@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"os"
 
 	"github.com/borkshop/bork/internal/ecs"
 	"github.com/gdamore/tcell"
@@ -96,6 +97,12 @@ func main() {
 	})
 
 	if err := func() error {
+		f, err := os.Create("debug.log")
+		if err != nil {
+			return err
+		}
+		log.SetOutput(f)
+
 		scr, err := tcell.NewScreen()
 		if err != nil {
 			return err
