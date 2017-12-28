@@ -119,10 +119,11 @@ func (mov *Moves) SetDir(move ecs.Entity, dir image.Point) {
 	mov.dir[move.ID()] = dir
 }
 
-// DeleteDir deletes any direction associated with the given move relation.
+// DeleteDir deletes any direction associated with the given move relation,
+// destroying it if it's now reduced to a magnitude-less pending move.
 func (mov *Moves) DeleteDir(move ecs.Entity) {
 	move.Delete(movDir)
-	if move.Type() == movRelPending || move.Type() == movRelCollide {
+	if t := move.Type(); t.HasAll(movRelPending) && !t.HasAny(movMag) {
 		move.Destroy()
 	}
 }
