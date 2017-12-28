@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/borkshop/bork/internal/bitmap"
 	"github.com/borkshop/bork/internal/cops/braille"
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/terminal"
@@ -43,7 +44,7 @@ func run() (err error) {
 		close(stopper)
 	}()
 
-	img := image.NewRGBA(image.Rect(0, 0, 1000, 1000))
+	bmp := bitmap.New(image.Rect(0, 0, 1000, 1000))
 	var buf []byte
 	cur := display.Start
 	buf, cur = cur.Hide(buf)
@@ -51,7 +52,7 @@ func run() (err error) {
 	buf, cur = cur.Clear(buf)
 
 	front, back := display.New2(bounds)
-	bb := braille.Bounds(bounds)
+	bb := braille.Bounds(bounds, braille.Margin)
 
 Loop:
 	for {
@@ -60,17 +61,13 @@ Loop:
 		for x := bb.Min.X; x < bb.Max.X; x++ {
 			z := int(float64(bb.Dy()) * (0.5 + 0.30*math.Sin(float64(t+x)*math.Pi*2.0*2.0/float64(bb.Dx()))))
 			for y := bb.Min.Y; y < bb.Max.Y; y++ {
-				if y < z+2 && y > z-2 {
-					img.Set(x, y, color.White)
-				} else {
-					img.Set(x, y, color.Black)
-				}
+				bmp.Set(x, y, y < z+2 && y > z-2)
 			}
 		}
 
 		// Size that image down and write it in braille to the display.
 		front.Fill(bounds, " ", color.Black, color.Transparent)
-		braille.Draw(front, bounds, img, image.ZP, color.RGBA{191, 191, 127, 255}, color.Black)
+		braille.DrawBitmap(front, bounds, bmp, image.ZP, braille.Margin, color.RGBA{191, 191, 127, 255})
 
 		buf, cur = display.RenderOver(buf, cur, front, back, display.Model24)
 		front, back = back, front

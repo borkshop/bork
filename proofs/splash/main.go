@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/borkshop/bork/internal/cops/bitmap"
+	"github.com/borkshop/bork/internal/bitmap"
 	"github.com/borkshop/bork/internal/cops/braille"
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/text"
@@ -134,8 +134,8 @@ func splash(d *display.Display, t int) {
 }
 
 func fillClouds(d *display.Display, sky image.Rectangle, t int) {
-	r := braille.Bounds(sky)
-	img := bitmap.New(r, white, blue)
+	r := braille.Bounds(sky, braille.Margin)
+	bmp := bitmap.New(r)
 	a := opensimplex.NewWithSeed(0)
 	b := opensimplex.NewWithSeed(100)
 	c := opensimplex.NewWithSeed(200)
@@ -143,11 +143,11 @@ func fillClouds(d *display.Display, sky image.Rectangle, t int) {
 		for x := r.Min.X; x < r.Max.X; x++ {
 			if a.Eval2(float64(x+t*2)/40.0, float64(y)/10.0)+c.Eval2(float64(x), float64(y)) > 0 &&
 				b.Eval2(float64(x+t/2)/80.0, float64(y)/20.0)+c.Eval2(float64(x), float64(y)) > 0 {
-				img.SetBit(x, y, true)
+				bmp.Set(x, y, true)
 			}
 		}
 	}
-	braille.DrawBitmap(d, sky, img, image.ZP, blue)
+	braille.DrawBitmap(d, sky, bmp, image.ZP, braille.Margin, blue)
 }
 
 func car() string {
