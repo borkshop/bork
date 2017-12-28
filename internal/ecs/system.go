@@ -12,6 +12,20 @@ type System struct {
 	Procs []Proc
 }
 
+// AddProc adds processor(s) to the system.
+func (sys *System) AddProc(procs ...Proc) {
+	sys.Procs = append(sys.Procs, procs...)
+}
+
+// AddProcFunc adds processing fucntion(s) to the system.
+func (sys *System) AddProcFunc(fns ...func()) {
+	procs := make([]Proc, len(fns))
+	for i := range fns {
+		procs[i] = ProcFunc(fns[i])
+	}
+	sys.Procs = append(sys.Procs, procs...)
+}
+
 // Process calls each Proc.
 func (sys *System) Process() {
 	for i := range sys.Procs {
