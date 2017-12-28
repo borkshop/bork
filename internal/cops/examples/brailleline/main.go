@@ -3,10 +3,9 @@ package main
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"os"
 
-	"github.com/borkshop/bork/internal/cops/bitmap"
+	"github.com/borkshop/bork/internal/bitmap"
 	"github.com/borkshop/bork/internal/cops/braille"
 	"github.com/borkshop/bork/internal/cops/display"
 )
@@ -20,19 +19,19 @@ func main() {
 func run() (err error) {
 	w, h := 32, 16
 	pb := image.Rect(0, 0, w, h)
-	bb := braille.Bounds(pb)
+	bb := braille.Bounds(pb, braille.Margin)
 	front := display.New(pb)
-	img := bitmap.New(bb, color.Black, color.White)
+	bmp := bitmap.New(bb)
 
 	for y := 0; y < h*6; y++ {
 		for x := 0; x < w*3; x++ {
 			if x == y || x+y*2/3 == 50 {
-				img.Set(x, y, color.White)
+				bmp.Set(x, y, true)
 			}
 		}
 	}
 
-	braille.Draw(front, pb, img, image.ZP, color.White, display.Colors[8])
+	braille.DrawBitmap(front, pb, bmp, image.ZP, braille.Margin, display.Colors[7])
 
 	var buf []byte
 	cur := display.Reset
