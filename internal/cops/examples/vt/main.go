@@ -13,12 +13,12 @@ import (
 )
 
 func main() {
-	if err := Main(); err != nil {
+	if err := run(); err != nil {
 		fmt.Printf("%v\n", err)
 	}
 }
 
-func Main() error {
+func run() error {
 	term := terminal.New(os.Stdin.Fd())
 	defer term.Restore()
 	term.SetRaw()

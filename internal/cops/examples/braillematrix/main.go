@@ -12,12 +12,12 @@ import (
 )
 
 func main() {
-	if err := Main(); err != nil {
+	if err := run(); err != nil {
 		fmt.Printf("%v\n", err)
 	}
 }
 
-func Main() error {
+func run() error {
 
 	w, h := 16, 16
 	pb := image.Rect(0, 0, w, h)
