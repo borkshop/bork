@@ -48,7 +48,7 @@ func run() (rerr error) {
 	commands, mute := input.Channel(os.Stdin)
 	defer mute()
 
-	sigwinch := make(chan os.Signal)
+	sigwinch := make(chan os.Signal, 1)
 	signal.Notify(sigwinch, syscall.SIGWINCH)
 
 	ticker := time.NewTicker(time.Second / 60)
