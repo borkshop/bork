@@ -62,7 +62,7 @@ func Draw(dst *display.Display, r image.Rectangle, src image.Image, sp image.Poi
 	DrawBitmap(dst, r, bits, sp, on)
 }
 
-// DrawBitmap
+// DrawBitmap FIXME
 func DrawBitmap(dst *display.Display, r image.Rectangle, src BitmapReader, sp image.Point, fg color.Color) {
 	w, h := r.Dx(), r.Dy()
 	for y := 0; y < h; y++ {

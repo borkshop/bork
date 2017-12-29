@@ -1,3 +1,5 @@
+// Package vtio provides a tool for drawing a ANSI stream onto a virtualized
+// display.
 package vtio
 
 import (
@@ -12,6 +14,9 @@ import (
 	"github.com/borkshop/bork/internal/cops/display"
 )
 
+// NewDisplayWriter creates an IO writer into which you can write virtual
+// terminal codes (ANSI) and capture the resulting virtualized display state.
+// The implementation of the ANSI language is far from complete.
 func NewDisplayWriter(rect image.Rectangle) *DisplayWriter {
 	dis := display.New(rect)
 	handler := &displayWriterHandler{
@@ -27,15 +32,20 @@ func NewDisplayWriter(rect image.Rectangle) *DisplayWriter {
 	}
 }
 
+// DisplayWriter captures ANSI terminal commands and draws them onto a virtual
+// display.
 type DisplayWriter struct {
 	parser  *ansiterm.AnsiParser
 	handler *displayWriterHandler
 }
 
+// C returns a read channel. This channel will receive a non-blocking write
+// whenever the underlying display changes.
 func (d *DisplayWriter) C() <-chan struct{} {
 	return d.handler.c
 }
 
+// Write draws ANSI virtual terminal bytes onto the underlying virtual display.
 func (d *DisplayWriter) Write(buf []byte) (int, error) {
 	d.handler.lock.Lock()
 	defer d.handler.lock.Unlock()
@@ -50,12 +60,14 @@ func (d *DisplayWriter) Write(buf []byte) (int, error) {
 	return count, err
 }
 
+// Draw captures the current display state.
 func (d *DisplayWriter) Draw(e *display.Display, r image.Rectangle) {
 	d.handler.lock.RLock()
 	defer d.handler.lock.RUnlock()
 	display.Draw(e, r, d.handler.dis, image.ZP, draw.Src)
 }
 
+// Resize reallocates the display with different dimensions.
 func (d *DisplayWriter) Resize(rect image.Rectangle) {
 	d.handler.lock.Lock()
 	defer d.handler.lock.Unlock()

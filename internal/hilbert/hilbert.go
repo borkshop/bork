@@ -2,16 +2,24 @@ package hilbert
 
 import "image"
 
+// Scale is the width and height of a Hilbert space-filling curve.
+// The scale must be a power of two.
 type Scale int
 
+// Encode returns the linear index of a point along a Hilbert curve with this
+// scale.
 func (scale Scale) Encode(pt image.Point) int {
 	return Encode(pt, int(scale))
 }
 
+// Decode returns the point at the given offset of a Hilbert curve with this
+// scale.
 func (scale Scale) Decode(hi int) image.Point {
 	return Decode(hi, int(scale))
 }
 
+// Encode returns the linear index of a point along a Hilbert curve for a given
+// scale.
 func Encode(pt image.Point, scale int) int {
 	var rotation image.Point
 	h := 0
@@ -24,6 +32,8 @@ func Encode(pt image.Point, scale int) int {
 	return h
 }
 
+// Decode returns the point corresponding to a given position along a Hilbert
+// curve of particular size.
 func Decode(h int, scale int) image.Point {
 	var pt, rotation image.Point
 	for s := 1; s < scale; s <<= 1 {
