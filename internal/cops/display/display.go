@@ -125,14 +125,34 @@ func (d *Display) setrgbai(i int, t string, f, b color.RGBA) {
 // Draw the background of the source over the background of the destination
 // image.
 func Draw(dst *Display, r image.Rectangle, src *Display, sp image.Point, op draw.Op) {
-	clip(dst.Bounds(), &r, src.Bounds(), &sp, nil, nil)
+	dst.Draw(r, src, sp, op)
+}
+
+// Draw composes one display over another. The bounds dictate the region of the
+// destination. The offset dictates the position within the source. Draw will:
+//
+// Overwrite the text layer for all non-empty text cells inside the rectangle.
+// Fill the text with space " " to overdraw all cells.
+//
+// Draw the foreground of the source over the foreground of the destination
+// image. Typically, the foreground is transparent for all cells empty of
+// text. Otherwise, this operation can have interesting results.
+//
+// Draw the background of the source over the *foreground* of the destination
+// image. This allows for translucent background colors on the source image
+// partially obscuring the text of the destination image.
+//
+// Draw the background of the source over the background of the destination
+// image.
+func (d *Display) Draw(r image.Rectangle, src *Display, sp image.Point, op draw.Op) {
+	clip(d.Bounds(), &r, src.Bounds(), &sp, nil, nil)
 	if r.Empty() {
 		return
 	}
-	draw.Draw(dst.Background, r, src.Background, sp, op)
-	draw.Draw(dst.Foreground, r, src.Background, sp, op)
-	draw.Draw(dst.Foreground, r, src.Foreground, sp, op)
-	textile.Draw(dst.Text, r, src.Text, sp)
+	draw.Draw(d.Background, r, src.Background, sp, op)
+	draw.Draw(d.Foreground, r, src.Background, sp, op)
+	draw.Draw(d.Foreground, r, src.Foreground, sp, op)
+	textile.Draw(d.Text, r, src.Text, sp)
 }
 
 // At returns the text and foreground and background colors at the given
