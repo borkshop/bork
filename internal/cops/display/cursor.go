@@ -103,6 +103,11 @@ func (c Cursor) Clear(buf []byte) ([]byte, Cursor) {
 	return append(buf, "\033[2J"...), c
 }
 
+// ClearLine erases the current line.
+func (c Cursor) ClearLine(buf []byte) ([]byte, Cursor) {
+	return append(buf, "\033[2K"...), c
+}
+
 // Reset returns the terminal to default white on black colors.
 func (c Cursor) Reset(buf []byte) ([]byte, Cursor) {
 	if c.Foreground != Colors[7] || c.Background != Colors[0] {
