@@ -17,7 +17,7 @@ func main() {
 	}
 }
 
-func run() error {
+func run() (err error) {
 	w, h := 32, 16
 	pb := image.Rect(0, 0, w, h)
 	bb := braille.Bounds(pb)
@@ -38,7 +38,7 @@ func run() error {
 	cur := display.Reset
 	buf, cur = display.Render(buf, cur, front, display.Model0)
 	buf = append(buf, "\r\n"...)
-	os.Stdout.Write(buf)
+	_, err = os.Stdout.Write(buf)
 
-	return nil
+	return err
 }

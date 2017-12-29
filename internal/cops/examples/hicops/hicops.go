@@ -19,10 +19,15 @@ func main() {
 	}
 }
 
-func run() error {
+func run() (err error) {
 	term := terminal.New(os.Stdin.Fd())
-	defer term.Restore()
-	term.SetRaw()
+	defer func() {
+		err = term.Restore()
+	}()
+	err = term.SetRaw()
+	if err != nil {
+		return
+	}
 
 	bounds, err := term.Bounds()
 	if err != nil {
@@ -51,17 +56,23 @@ func run() error {
 	buf, cur = cur.Home(buf)
 	buf, cur = display.Render(buf, cur, front, display.Model24)
 	buf, cur = cur.Home(buf)
-	os.Stdout.Write(buf)
+	_, err = os.Stdout.Write(buf)
+	if err != nil {
+		return err
+	}
 	buf = buf[0:0]
 
 	var input [1]byte
-	os.Stdin.Read(input[0:1])
+	_, err = os.Stdin.Read(input[0:1])
+	if err != nil {
+		return err
+	}
 
 	buf, cur = cur.Home(buf)
 	buf, cur = cur.Clear(buf)
 	buf, cur = cur.Show(buf)
-	os.Stdout.Write(buf)
+	_, err = os.Stdout.Write(buf)
 	buf = buf[0:0]
 
-	return nil
+	return err
 }
