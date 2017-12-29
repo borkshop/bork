@@ -297,8 +297,8 @@ func (w *world) processRest() {
 	for cur := w.moves.Pending(); cur.Scan(); {
 		move, ent := cur.R(), cur.A()
 		if n := w.moves.Mag(move); ent.Type().HasAll(wcBody) && n >= maxRestingCharge {
-			w.moves.SetMag(move, n)
 			n = w.heal(ent, n)
+			w.moves.SetMag(move, n)
 		}
 	}
 }
