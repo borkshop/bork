@@ -143,7 +143,7 @@ func (perf *Perf) stopProfiling() (err error) {
 	}
 	perf.shouldProfile = false
 	perf.profiling = false
-	return nil
+	return err
 }
 
 func (perf *Perf) takeProfile() error {
