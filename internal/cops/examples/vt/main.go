@@ -18,10 +18,15 @@ func main() {
 	}
 }
 
-func run() error {
+func run() (err error) {
 	term := terminal.New(os.Stdin.Fd())
-	defer term.Restore()
-	term.SetRaw()
+	defer func() {
+		err = term.Restore()
+	}()
+	err = term.SetRaw()
+	if err != nil {
+		return err
+	}
 
 	leader, follower, err := termios.Pty()
 	if err != nil {
@@ -46,7 +51,9 @@ func run() error {
 	}
 
 	vtw := vtio.NewDisplayWriter(bounds)
-	go io.Copy(vtw, leader)
+	go func() {
+		_, err = io.Copy(vtw, leader)
+	}()
 
 	front, back := display.New2(bounds)
 
@@ -61,7 +68,7 @@ func run() error {
 	r := make(chan struct{}, 0)
 	go func() {
 		var rbuf [1]byte
-		os.Stdin.Read(rbuf[0:1])
+		_, err = os.Stdin.Read(rbuf[0:1])
 		close(r)
 	}()
 
@@ -73,7 +80,10 @@ DrawLoop:
 			buf, cur = display.RenderOver(buf, cur, front, back, display.Model24)
 			front, back = back, front
 			// fmt.Printf("%q\r\n", buf)
-			os.Stdout.Write(buf)
+			_, err = os.Stdout.Write(buf)
+			if err != nil {
+				break DrawLoop
+			}
 			buf = buf[0:0]
 		case <-r:
 			break DrawLoop
@@ -84,8 +94,8 @@ DrawLoop:
 	buf, cur = cur.Home(buf)
 	buf, cur = cur.Clear(buf)
 	buf, cur = cur.Show(buf)
-	os.Stdout.Write(buf)
+	_, err = os.Stdout.Write(buf)
 	buf = buf[0:0]
 
-	return nil
+	return err
 }

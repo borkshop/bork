@@ -122,7 +122,9 @@ func (h *displayWriterHandler) Print(b byte) error {
 
 func (h *displayWriterHandler) Execute(b byte) error {
 	// fmt.Printf("E %q\r\n", string(b))
-	h.Flush()
+	if err := h.Flush(); err != nil {
+		return err
+	}
 	switch b {
 	case '\n':
 		h.pos.Y++
@@ -140,7 +142,9 @@ func (h *displayWriterHandler) Execute(b byte) error {
 
 // Cursor up
 func (h *displayWriterHandler) CUU(i int) error {
-	h.Flush()
+	if err := h.Flush(); err != nil {
+		return err
+	}
 	// fmt.Printf("CUU\n")
 	h.pos.Y -= i
 	// if h.pos.Y < h.dis.Rect.Min.Y {
@@ -151,7 +155,9 @@ func (h *displayWriterHandler) CUU(i int) error {
 
 // Cursor down
 func (h *displayWriterHandler) CUD(i int) error {
-	h.Flush()
+	if err := h.Flush(); err != nil {
+		return err
+	}
 	// fmt.Printf("CUD\n")
 	h.pos.Y += i
 	// if h.pos.Y >= h.dis.Rect.Max.Y {
@@ -162,7 +168,9 @@ func (h *displayWriterHandler) CUD(i int) error {
 
 // Cursor forward
 func (h *displayWriterHandler) CUF(i int) error {
-	h.Flush()
+	if err := h.Flush(); err != nil {
+		return err
+	}
 	// fmt.Printf("CUF\n")
 	h.pos.X += i
 	// if h.pos.X >= h.dis.Rect.Max.X {
@@ -173,7 +181,9 @@ func (h *displayWriterHandler) CUF(i int) error {
 
 // Cursor backward
 func (h *displayWriterHandler) CUB(i int) error {
-	h.Flush()
+	if err := h.Flush(); err != nil {
+		return err
+	}
 	// fmt.Printf("CUB\n")
 	h.pos.X -= i
 	// if h.pos.X < h.dis.Rect.Min.X {
@@ -184,19 +194,25 @@ func (h *displayWriterHandler) CUB(i int) error {
 
 // Cursor new line?
 func (h *displayWriterHandler) CNL(i int) error {
-	h.Flush()
+	if err := h.Flush(); err != nil {
+		return err
+	}
 	// fmt.Printf("CNL\n")
 	return nil
 }
 
 func (h *displayWriterHandler) CPL(int) error {
-	h.Flush()
+	if err := h.Flush(); err != nil {
+		return err
+	}
 	// fmt.Printf("CPL\n")
 	return nil
 }
 
 func (h *displayWriterHandler) CHA(i int) error {
-	h.Flush()
+	if err := h.Flush(); err != nil {
+		return err
+	}
 	h.pos.X = i - 1
 	return nil
 }
@@ -211,7 +227,9 @@ func (h *displayWriterHandler) VPA(i int) error {
 // Cursor update
 func (h *displayWriterHandler) CUP(y, x int) error {
 	// fmt.Printf("CUP\r\n")
-	h.Flush()
+	if err := h.Flush(); err != nil {
+		return err
+	}
 	h.pos.X = x - 1
 	h.pos.Y = y - 1
 	return nil
@@ -219,8 +237,7 @@ func (h *displayWriterHandler) CUP(y, x int) error {
 
 // Horizontal vertical position
 func (h *displayWriterHandler) HVP(y, x int) error {
-	h.CUP(y, x)
-	return nil
+	return h.CUP(y, x)
 }
 
 // Text cursor enable mode (show or hide cursor)
@@ -242,8 +259,7 @@ func (h *displayWriterHandler) DECCOLM(bool) error {
 // Erase display
 func (h *displayWriterHandler) ED(i int) error {
 	// fmt.Printf("ED\r\n")
-	h.Flush()
-	return nil
+	return h.Flush()
 }
 
 // Erase line
@@ -287,7 +303,9 @@ func (h *displayWriterHandler) DCH(int) error {
 // Set graphics rendition
 func (h *displayWriterHandler) SGR(codes []int) error {
 	// fmt.Printf("SGR %#v\r\n", codes)
-	h.Flush()
+	if err := h.Flush(); err != nil {
+		return err
+	}
 
 	if len(codes) == 0 {
 		h.fg = display.Colors[7]

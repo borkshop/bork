@@ -20,10 +20,15 @@ func main() {
 	}
 }
 
-func run() error {
+func run() (err error) {
 	term := terminal.New(os.Stdin.Fd())
-	defer term.Restore()
-	term.SetRaw()
+	defer func() {
+		err = term.Restore()
+	}()
+	err = term.SetRaw()
+	if err != nil {
+		return err
+	}
 
 	data, err := Asset("earth.gif")
 	if err != nil {
@@ -62,7 +67,10 @@ func run() error {
 	go func() {
 		var rbuf [1]byte
 		for {
-			os.Stdin.Read(rbuf[0:1])
+			_, err := os.Stdin.Read(rbuf[0:1])
+			if err != nil {
+				break
+			}
 			keypress <- rbuf[0]
 		}
 	}()
@@ -78,7 +86,10 @@ Loop:
 		buf, cur = display.RenderOver(buf, cur, front, back, display.Model24)
 		front, back = back, front
 		buf, cur = cur.Home(buf)
-		os.Stdout.Write(buf)
+		_, err = os.Stdout.Write(buf)
+		if err != nil {
+			break Loop
+		}
 		buf = buf[0:0]
 
 		delay := time.Duration(imgs.Delay[i]) * time.Millisecond * 10
@@ -98,10 +109,10 @@ Loop:
 	buf, cur = cur.Home(buf)
 	buf, cur = cur.Clear(buf)
 	buf, cur = cur.Show(buf)
-	os.Stdout.Write(buf)
+	_, err = os.Stdout.Write(buf)
 	buf = buf[0:0]
 
-	return nil
+	return err
 }
 
 func projectCenterPreserveAspect(inner, outer image.Point) image.Rectangle {

@@ -21,7 +21,7 @@ type Terminal struct {
 // that terminal to its current state.
 func New(fd uintptr) Terminal {
 	t := Terminal{fd: fd}
-	termios.Tcgetattr(fd, &t.old)
+	_ = termios.Tcgetattr(fd, &t.old)
 	t.now = t.old
 	return t
 }
