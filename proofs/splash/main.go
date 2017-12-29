@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"image/draw"
 	"math/rand"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/borkshop/bork/internal/bitmap"
+	"github.com/borkshop/bork/internal/borkmark"
 	"github.com/borkshop/bork/internal/cops/braille"
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/text"
@@ -25,14 +25,6 @@ func main() {
 		fmt.Printf("%v\n", err)
 	}
 }
-
-var (
-	white   = color.RGBA{192, 198, 187, 255}
-	yellow  = color.RGBA{213, 179, 42, 255}
-	smog    = color.RGBA{20, 185, 255, 255}
-	blue    = color.RGBA{2, 50, 145, 255}
-	asphalt = color.RGBA{29, 33, 48, 255}
-)
 
 func run() (rerr error) {
 	term, err := display.NewTerminal(os.Stdout)
@@ -54,7 +46,7 @@ func run() (rerr error) {
 	ticker := time.NewTicker(time.Second / 60)
 
 	for {
-		splash(term.Display, int(time.Now().UnixNano()/100000000))
+		splash(term.Display, time.Now())
 
 		if err := term.Render(); err != nil {
 			return err
@@ -78,7 +70,7 @@ func run() (rerr error) {
 	}
 }
 
-func splash(d *display.Display, t int) {
+func splash(d *display.Display, t time.Time) {
 	const borkHeight = 4
 
 	bounds := d.Bounds()
@@ -87,9 +79,9 @@ func splash(d *display.Display, t int) {
 
 	bork := upper
 	bork.Min.Y = upper.Max.Y - borkHeight
-	d.Fill(upper, " ", smog, smog)
-	d.Fill(lower, " ", asphalt, asphalt)
-	d.Fill(bork, " ", blue, blue)
+	d.Fill(upper, " ", borkmark.Smog, borkmark.Smog)
+	d.Fill(lower, " ", borkmark.Asphalt, borkmark.Asphalt)
+	d.Fill(bork, " ", borkmark.Blue, borkmark.Blue)
 
 	skybox := upper
 	skybox.Max.Y -= borkHeight
@@ -101,30 +93,30 @@ func splash(d *display.Display, t int) {
 	borkline = borkline.Add(image.Pt(0, 1))
 	msg := "B Ø R K"
 	msgbox := rectangle.MiddleCenter(text.Bounds(msg), borkline)
-	text.Write(d, msgbox, msg, yellow)
+	text.Write(d, msgbox, msg, borkmark.Yellow)
 
 	borkline = borkline.Add(image.Pt(0, 2))
 	msg = "█ █ █ █"
 	msgbox = rectangle.MiddleCenter(text.Bounds(msg), borkline)
-	text.Write(d, msgbox, msg, yellow)
+	text.Write(d, msgbox, msg, borkmark.Yellow)
 
 	parkingbox := image.Rect(0, 0, 9, 2)
 
 	lower.Min.X--
 	lower.Min.Y += 2
 	parking := display.New(parkingbox)
-	text.Write(parking, parkingbox, "──┬──\n  │  ", yellow)
+	text.Write(parking, parkingbox, "──┬──\n  │  ", borkmark.Yellow)
 	for x := lower.Min.X; x < lower.Max.X; x += parkingbox.Max.X {
 		for y := lower.Min.Y; y < lower.Max.Y; y += parkingbox.Max.Y {
 			at := image.Rect(x, y, lower.Max.X, lower.Max.Y)
 			display.Draw(d, at, parking, image.ZP, draw.Over)
-			d.Set(x, y+1, car(), asphalt, asphalt)
-			d.Set(x+3, y+1, car(), asphalt, asphalt)
+			d.Set(x, y+1, car(), borkmark.Asphalt, borkmark.Asphalt)
+			d.Set(x+3, y+1, car(), borkmark.Asphalt, borkmark.Asphalt)
 		}
 	}
 
 	lower.Min.Y += parkingbox.Max.Y
-	text.Write(parking, parkingbox, "──┼──\n  │  ", yellow)
+	text.Write(parking, parkingbox, "──┼──\n  │  ", borkmark.Yellow)
 	for x := lower.Min.X; x < lower.Max.X; x += parkingbox.Max.X {
 		for y := lower.Min.Y; y < lower.Max.Y; y += parkingbox.Max.Y {
 			at := image.Rect(x, y, lower.Max.X, lower.Max.Y)
@@ -133,7 +125,8 @@ func splash(d *display.Display, t int) {
 	}
 }
 
-func fillClouds(d *display.Display, sky image.Rectangle, t int) {
+func fillClouds(d *display.Display, sky image.Rectangle, now time.Time) {
+	t := int(now.UnixNano() * 10 / int64(time.Second))
 	r := braille.Bounds(sky, braille.Margin)
 	bmp := bitmap.New(r)
 	a := opensimplex.NewWithSeed(0)
@@ -141,13 +134,15 @@ func fillClouds(d *display.Display, sky image.Rectangle, t int) {
 	c := opensimplex.NewWithSeed(200)
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		for x := r.Min.X; x < r.Max.X; x++ {
-			if a.Eval2(float64(x+t*2)/40.0, float64(y)/10.0)+c.Eval2(float64(x), float64(y)) > 0 &&
-				b.Eval2(float64(x+t/2)/80.0, float64(y)/20.0)+c.Eval2(float64(x), float64(y)) > 0 {
+			shape := a.Eval2(float64(x+t*2)/40.0, float64(y)/10.0)
+			detail := c.Eval2(float64(x), float64(y))
+			broad := b.Eval2(float64(x+t/2)/80.0, float64(y)/20.0)
+			if shape+detail > 0 && broad+detail > 0 {
 				bmp.Set(x, y, true)
 			}
 		}
 	}
-	braille.DrawBitmap(d, sky, bmp, image.ZP, braille.Margin, blue)
+	braille.DrawBitmap(d, sky, bmp, image.ZP, braille.Margin, borkmark.Blue)
 }
 
 func car() string {
