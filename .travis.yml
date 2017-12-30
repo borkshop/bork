@@ -2,9 +2,7 @@ language: go
 go:
   - "1.9"
 install:
-  - go get -u github.com/alecthomas/gometalinter
-  - gometalinter --install
-  - go get -u github.com/golang/dep/cmd/dep
+  - make dev-setup
   - dep ensure
 script:
   - make ci
