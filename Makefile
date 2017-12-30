@@ -15,9 +15,6 @@ lint:
 		--enable errcheck \
 		./...
 
-.PHONY: ci
-ci: test lint
-
 .PHONY: dev-setup
 dev-setup:
 	go get -u github.com/alecthomas/gometalinter

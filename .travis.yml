@@ -5,5 +5,5 @@ install:
   - make dev-setup
   - dep ensure
 script:
-  - make ci
-
+  - make lint
+  - make test
