@@ -106,8 +106,8 @@ func (c Cursor) Clear(buf []byte) ([]byte, Cursor) {
 // Reset returns the terminal to default white on black colors.
 func (c Cursor) Reset(buf []byte) ([]byte, Cursor) {
 	if c.Foreground != Colors[7] || c.Background != Colors[0] {
-		c.Foreground = Colors[7]
-		c.Background = Colors[0]
+		//lint:ignore SA4005 broken check
+		c.Foreground, c.Background = Colors[7], Colors[0]
 		buf = append(buf, "\033[m"...)
 	}
 	return buf, c
