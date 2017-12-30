@@ -13,6 +13,8 @@ lint:
 		--enable golint \
 		--enable vet \
 		--enable errcheck \
+		--enable staticcheck \
+		--deadline 1m \
 		./...
 
 .PHONY: dev-setup
