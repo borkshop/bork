@@ -1,4 +1,3 @@
-
 GO_FILES := $(shell git ls-files | grep "\.go$$")
 
 PACKAGES := $(shell find $(GO_FILES) | xargs -n1 dirname | sed 's:^:./:'| uniq)
@@ -25,15 +24,6 @@ errcheck:
 
 .PHONY: lint
 lint: gofmt govet golint errcheck
-
-.PHONY: install
-install:
-	dep ensure
-
-.PHONY: install-ci
-install-ci:
-	go get -u github.com/golang/dep/cmd/dep github.com/golang/lint/golint github.com/kisielk/errcheck
-	dep ensure
 
 .PHONY: ci
 ci: test lint
