@@ -110,7 +110,6 @@ Loop:
 	buf, cur = cur.Clear(buf)
 	buf, cur = cur.Show(buf)
 	_, err = os.Stdout.Write(buf)
-	buf = buf[0:0]
 
 	return err
 }

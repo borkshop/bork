@@ -116,6 +116,5 @@ Loop:
 	if err != nil {
 		return err
 	}
-	buf = buf[0:0]
 	return err
 }
