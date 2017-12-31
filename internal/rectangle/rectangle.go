@@ -34,14 +34,14 @@ func Capture(r image.Rectangle, pt image.Point) image.Rectangle {
 	if pt.X < r.Min.X {
 		r.Min.X = pt.X
 	}
-	if pt.X > r.Max.X {
-		r.Max.X = pt.X
+	if pt.X >= r.Max.X {
+		r.Max.X = pt.X + 1
 	}
 	if pt.Y < r.Min.Y {
 		r.Min.Y = pt.Y
 	}
-	if pt.Y > r.Max.Y {
-		r.Max.Y = pt.Y
+	if pt.Y >= r.Max.Y {
+		r.Max.Y = pt.Y + 1
 	}
 	return r
 }
