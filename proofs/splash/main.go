@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image"
-	"image/draw"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -16,6 +15,7 @@ import (
 	"github.com/borkshop/bork/internal/cops/display"
 	"github.com/borkshop/bork/internal/cops/text"
 	"github.com/borkshop/bork/internal/input"
+	"github.com/borkshop/bork/internal/parking"
 	"github.com/borkshop/bork/internal/rectangle"
 	opensimplex "github.com/ojrac/opensimplex-go"
 )
@@ -43,10 +43,15 @@ func run() (rerr error) {
 	sigwinch := make(chan os.Signal, 1)
 	signal.Notify(sigwinch, syscall.SIGWINCH)
 
+	// Animation interval, 60Hz
 	ticker := time.NewTicker(time.Second / 60)
 
+	bork := newBork(term.Display.Bounds())
+
 	for {
-		splash(term.Display, time.Now())
+		now := time.Now()
+
+		bork.splash(term.Display, now)
 
 		if err := term.Render(); err != nil {
 			return err
@@ -55,6 +60,7 @@ func run() (rerr error) {
 		select {
 		case <-ticker.C:
 		case <-sigwinch:
+			bork = newBork(term.Display.Bounds())
 			if err := term.UpdateSize(); err != nil {
 				return err
 			}
@@ -70,7 +76,26 @@ func run() (rerr error) {
 	}
 }
 
-func splash(d *display.Display, t time.Time) {
+type bork struct {
+	now time.Time
+	lot *parking.Lot
+}
+
+func newBork(bounds image.Rectangle) *bork {
+	_, lower := rectangle.SplitHorizontal(bounds)
+	lot := parking.NewLotForBounds(lower)
+	return &bork{
+		lot: lot,
+		now: time.Now(),
+	}
+}
+
+func (b *bork) splash(d *display.Display, t time.Time) {
+	for b.now.Before(t) {
+		b.lot.Tick()
+		b.now = b.now.Add(500 * time.Millisecond)
+	}
+
 	const borkHeight = 4
 
 	bounds := d.Bounds()
@@ -100,29 +125,7 @@ func splash(d *display.Display, t time.Time) {
 	msgbox = rectangle.MiddleCenter(text.Bounds(msg), borkline)
 	text.Write(d, msgbox, msg, borkmark.Yellow)
 
-	parkingbox := image.Rect(0, 0, 9, 2)
-
-	lower.Min.X--
-	lower.Min.Y += 2
-	parking := display.New(parkingbox)
-	text.Write(parking, parkingbox, "──┬──\n  │  ", borkmark.Yellow)
-	for x := lower.Min.X; x < lower.Max.X; x += parkingbox.Max.X {
-		for y := lower.Min.Y; y < lower.Max.Y; y += parkingbox.Max.Y {
-			at := image.Rect(x, y, lower.Max.X, lower.Max.Y)
-			display.Draw(d, at, parking, image.ZP, draw.Over)
-			d.Set(x, y+1, car(), borkmark.Asphalt, borkmark.Asphalt)
-			d.Set(x+3, y+1, car(), borkmark.Asphalt, borkmark.Asphalt)
-		}
-	}
-
-	lower.Min.Y += parkingbox.Max.Y
-	text.Write(parking, parkingbox, "──┼──\n  │  ", borkmark.Yellow)
-	for x := lower.Min.X; x < lower.Max.X; x += parkingbox.Max.X {
-		for y := lower.Min.Y; y < lower.Max.Y; y += parkingbox.Max.Y {
-			at := image.Rect(x, y, lower.Max.X, lower.Max.Y)
-			display.Draw(d, at, parking, image.ZP, draw.Over)
-		}
-	}
+	b.lot.Draw(d, lower)
 }
 
 func fillClouds(d *display.Display, sky image.Rectangle, now time.Time) {
