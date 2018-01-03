@@ -243,12 +243,18 @@ func (mov *Moves) runMove(
 
 // Pending returns a relation cursor over all pending moves; thse are either
 // unprocessed moves, or leftover/unused magnitudes.
-func (mov *Moves) Pending() ecs.Cursor {
-	return mov.Select(movRelPending.All())
+func (mov *Moves) Pending(opts ...ecs.CursorOpt) ecs.Cursor {
+	sopts := make([]ecs.CursorOpt, 1, 1+len(opts))
+	sopts[0] = movRelPending.All()
+	sopts = append(sopts, opts...)
+	return mov.Select(sopts...)
 }
 
 // Collisions returns a relation cursor over all collisions from the last
 // processing round.
-func (mov *Moves) Collisions() ecs.Cursor {
-	return mov.Select(movRelCollide.All())
+func (mov *Moves) Collisions(opts ...ecs.CursorOpt) ecs.Cursor {
+	sopts := make([]ecs.CursorOpt, 1, 1+len(opts))
+	sopts[0] = movRelCollide.All()
+	sopts = append(sopts, opts...)
+	return mov.Select(sopts...)
 }
