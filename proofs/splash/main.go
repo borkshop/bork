@@ -116,12 +116,12 @@ func (b *bork) splash(d *display.Display, t time.Time) {
 	borkline.Max.Y = borkline.Min.Y + 1
 
 	borkline = borkline.Add(image.Pt(0, 1))
-	msg := "B Ø R K"
+	msg := "B  Ø  R  K"
 	msgbox := rectangle.MiddleCenter(text.Bounds(msg), borkline)
 	text.Write(d, msgbox, msg, borkmark.Yellow)
 
 	borkline = borkline.Add(image.Pt(0, 2))
-	msg = "█ █ █ █"
+	msg = "█  █  █  █"
 	msgbox = rectangle.MiddleCenter(text.Bounds(msg), borkline)
 	text.Write(d, msgbox, msg, borkmark.Yellow)
 

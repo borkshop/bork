@@ -74,11 +74,14 @@ var tileBox = image.Rectangle{
 	image.Point{tileWidth, tileHeight},
 }
 
+var firstTileTemplate *display.Display
 var tileTemplate *display.Display
 
 func init() {
 	tileTemplate = display.New(tileBox)
 	text.Write(tileTemplate, tileBox, "┼──    ──\n│", borkmark.Yellow)
+	firstTileTemplate = display.New(tileBox)
+	text.Write(firstTileTemplate, tileBox, "┬──    ──\n│", borkmark.Yellow)
 }
 
 type pos int
@@ -427,15 +430,25 @@ func (lot *Lot) Draw(dis *display.Display, box image.Rectangle) {
 	// dis.Clear(dis.Bounds()) // FIXME should suffice
 	dis.Fill(box, " ", display.Colors[7], display.Colors[0])
 
+	// Compute offset position by centering the lot.
+	center := box.Dx() / 2
+	width := (lot.width / 2) * tileWidth
+	offset := image.Pt(center-5-width, 2)
+
+	y := 0
 	for x := 0; x < lot.width*tileWidth; x += tileWidth {
-		for y := 0; y < tileHeight*lot.height; y += tileHeight {
-			dis.Draw(tileBox.Add(image.Pt(x, y)).Add(box.Min), tileTemplate, image.ZP, draw.Over)
+		dis.Draw(tileBox.Add(image.Pt(x, y)).Add(box.Min).Add(offset), firstTileTemplate, image.ZP, draw.Over)
+	}
+
+	for y := tileHeight; y < tileHeight*lot.height; y += tileHeight {
+		for x := 0; x < lot.width*tileWidth; x += tileWidth {
+			dis.Draw(tileBox.Add(image.Pt(x, y)).Add(box.Min).Add(offset), tileTemplate, image.ZP, draw.Over)
 		}
 	}
 
 	for _, car := range lot.cars {
 		if car.motive != entering {
-			pt := point.MulRespective(car.tile, tileBox.Size()).Add(offsets[int(car.pos)]).Add(box.Min)
+			pt := point.MulRespective(car.tile, tileBox.Size()).Add(offsets[int(car.pos)]).Add(box.Min).Add(offset)
 			r := carGlyph(car)
 			dis.Set(pt.X, pt.Y, r, display.Colors[7], display.Colors[0])
 		}
