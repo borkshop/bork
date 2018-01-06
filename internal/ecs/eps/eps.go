@@ -61,7 +61,7 @@ func (eps *EPS) Set(ent ecs.Entity, pt image.Point) {
 		ent.Add(eps.t)
 	}
 	eps.pt[id-1] = pt
-	eps.ix.key[id-1] = zorderKey(pt)
+	eps.ix.key[id-1] = point.ZKey(pt)
 	if flg := eps.ix.flg[id-1]; flg&epsInval == 0 {
 		eps.ix.flg[id-1] = flg | epsInval
 		eps.inval++
@@ -74,7 +74,7 @@ func (eps *EPS) Set(ent ecs.Entity, pt image.Point) {
 // TODO provide a struct that localizes that sharing.
 func (eps *EPS) At(pt image.Point) []ecs.Entity {
 	eps.reindex()
-	k := zorderKey(pt)
+	k := point.ZKey(pt)
 	i, m := eps.ix.searchRun(k)
 	if m == 0 {
 		return nil
@@ -160,7 +160,7 @@ func (eps *EPS) alloc(id ecs.EntityID, t ecs.ComponentType) {
 
 func (eps *EPS) create(id ecs.EntityID, t ecs.ComponentType) {
 	eps.ix.flg[id-1] |= epsDef
-	eps.ix.key[id-1] = zorderKey(eps.pt[id-1])
+	eps.ix.key[id-1] = point.ZKey(eps.pt[id-1])
 	if flg := eps.ix.flg[id-1]; flg&epsInval == 0 {
 		eps.ix.flg[id-1] = flg | epsInval
 		eps.inval++
@@ -312,25 +312,4 @@ func (ix index) searchRun(key uint64) (i, m int) {
 		m++
 	}
 	return i, m
-}
-
-// TODO: evaluate hilbert instead of z-order
-func zorderKey(pt image.Point) (z uint64) {
-	// TODO: evaluate a table ala
-	// https://graphics.stanford.edu/~seander/bithacks.html#InterleaveTableObvious
-	x, y := truncInt32(pt.X), truncInt32(pt.Y)
-	for i := uint(0); i < 32; i++ {
-		z |= (x&(1<<i))<<i | (y&(1<<i))<<(i+1)
-	}
-	return z
-}
-
-func truncInt32(n int) uint64 {
-	if n < math.MinInt32 {
-		return 0
-	}
-	if n > math.MaxInt32 {
-		return math.MaxUint32
-	}
-	return uint64(uint32(n - math.MinInt32))
 }
