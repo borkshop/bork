@@ -18,7 +18,7 @@ func ZKey(pt image.Point) (z uint64) {
 
 func truncInt32(n int) uint64 {
 	if n < math.MinInt32 {
-		return 0
+		return math.MinInt32
 	}
 	if n > math.MaxInt32 {
 		return math.MaxUint32
