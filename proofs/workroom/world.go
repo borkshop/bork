@@ -139,19 +139,21 @@ func (world *worldT) analyze() {
 	// build a dense array of empty floor spaces, called tiles, along with an
 	// EntityID-to-tileIndex mapping
 	var (
-		box        = world.pos.Bounds()
-		zmin, zmax = point.ZKey(box.Min), point.ZKey(box.Max)
-		n          = zmax - zmin
-		tiles      = make([]ecs.EntityID, n)
-		spaces     = make(map[ecs.EntityID]uint64, n)
+		box    = world.pos.Bounds()
+		frame  = point.ZFrame{Bounds: box}
+		zmax   = frame.Key(box.Max)
+		tiles  = make([]ecs.EntityID, zmax)
+		spaces = make(map[ecs.EntityID]uint64, zmax)
 	)
 	for it := world.Iter((wcFloor | wcWall).Any(), wcPosition.All()); it.Next(); {
 		pos, _ := world.pos.Get(it.Entity())
-		ix := point.ZKey(pos) - zmin
+		ix := frame.Key(pos)
 		t := it.Type()
 		tid := tiles[ix]
-		if t.HasAll(wcWall) && tid > 0 {
-			delete(spaces, tid)
+		if t.HasAll(wcWall) {
+			if tid > 0 {
+				delete(spaces, tid)
+			}
 			tiles[ix] = -1
 		} else if t.HasAll(wcFloor) && tid == 0 {
 			id := it.ID()
@@ -169,11 +171,11 @@ func (world *worldT) analyze() {
 			continue
 		}
 
-		pos := point.ZPoint(zmin + uint64(ix))
+		pos := frame.Point(uint64(ix))
 		pat := nePat(0)
 		for i, d := range nePos {
 			if qpt := pos.Add(d); qpt.In(box) {
-				if qix := point.ZKey(qpt) - zmin; tiles[qix] > 0 {
+				if qix := frame.Key(qpt); tiles[qix] > 0 {
 					pat |= 1 << uint(i)
 					if neRoom[pat] {
 						break
@@ -182,6 +184,7 @@ func (world *worldT) analyze() {
 			}
 		}
 		if !neRoom[pat] {
+			delete(spaces, tiles[ix])
 			tiles[ix] = 0
 		}
 	}
@@ -210,13 +213,13 @@ func (world *worldT) analyze() {
 			}
 			tiles[ix] = ecs.EntityID(-regionID)
 
-			pos := point.ZPoint(zmin + ix)
+			pos := frame.Point(ix)
 			for _, d := range []image.Point{
 				image.Pt(-1, 0), image.Pt(+1, 0),
 				image.Pt(0, -1), image.Pt(0, +1),
 			} {
 				if pt := pos.Add(d); pt.In(box) {
-					nix := point.ZKey(pt) - zmin
+					nix := frame.Key(pt)
 					nid := tiles[nix]
 					if _, def := spaces[nid]; def {
 						stack = append(stack, nix)
@@ -234,10 +237,10 @@ func (world *worldT) analyze() {
 		regionGlyphs[i] = rune('1' + i)
 	}
 	for ; i < numRegions && i < 10+26; i++ {
-		regionGlyphs[i] = rune('a' + i)
+		regionGlyphs[i] = rune('a' + i - 10)
 	}
 	for ; i < numRegions && i < 10+26+26; i++ {
-		regionGlyphs[i] = rune('A' + i)
+		regionGlyphs[i] = rune('A' + i - 10 - 26)
 	}
 
 	// assign tile region glyphs to floors (or clear any prior floor glyph)
@@ -245,7 +248,7 @@ func (world *worldT) analyze() {
 	for it := world.Iter((wcFloor | wcPosition).All()); it.Next(); {
 		tile := it.Entity()
 		pos, _ := world.pos.Get(tile)
-		ix := point.ZKey(pos) - zmin
+		ix := frame.Key(pos)
 		var glyph rune
 		if regionID := -tiles[ix]; regionID > 0 {
 			glyph = regionGlyphs[regionID-1]
