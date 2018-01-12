@@ -25,3 +25,14 @@ func (zf ZFrame) Key(pt image.Point) (z uint64) {
 	}
 	return z
 }
+
+// Point unpacks a z-curve key into a point.
+func (zf ZFrame) Point(z uint64) image.Point {
+	var x, y uint64
+	for i := uint(0); i < 32; i++ {
+		j := 2 * i
+		x |= (z & (1 << j)) >> i
+		y |= (z & (1 << (j + 1))) >> (i + 1)
+	}
+	return image.Pt(int(x), int(y)).Add(zf.Bounds.Min)
+}
