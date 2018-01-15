@@ -1,10 +1,12 @@
 package eps
 
 import (
+	"encoding/json"
 	"image"
 	"log"
 	"math"
 	"sort"
+	"strconv"
 
 	"github.com/borkshop/bork/internal/ecs"
 	"github.com/borkshop/bork/internal/point"
@@ -201,8 +203,35 @@ func (eps *EPS) destroy(id ecs.EntityID, t ecs.ComponentType) {
 
 const (
 	forceReSort = false
-	checkReSort = false
+	checkReSort = true  // TODO eliminate need for this bug-workaround
+	debugReSort = false // TODO use this to debug, test, and fix
 )
+
+type hexKey uint64
+
+func (hk hexKey) MarshalJSON() ([]byte, error) {
+	ib := strconv.AppendUint(make([]byte, 0, 16), uint64(hk), 16)
+	buf := make([]byte, 0, 1+len(ib)+1)
+	buf = append(buf, '"')
+	for n := 16 - len(ib); n > 0; n-- {
+		buf = append(buf, '0')
+	}
+	buf = append(buf, ib...)
+	buf = append(buf, '"')
+	return buf, nil
+}
+
+type ixData struct {
+	Defined bool        `json:"defined"`
+	Invalid bool        `json:"invalid"`
+	Point   image.Point `json:"point"`
+	ZKey    hexKey      `json:"zkey"`
+}
+
+var dbg struct {
+	NumInval int      `json:"num_inval"`
+	Index    []ixData `json:"index"`
+}
 
 func (eps *EPS) reindex() {
 	if eps.inval <= 0 {
@@ -216,6 +245,19 @@ func (eps *EPS) reindex() {
 		}
 		eps.inval = 0
 		return
+	}
+
+	if debugReSort {
+		dbg.NumInval = eps.inval
+		dbg.Index = make([]ixData, len(eps.ix.ix))
+		for i, xi := range eps.ix.ix {
+			dbg.Index[i] = ixData{
+				Defined: eps.ix.flg[xi]&epsDef != 0,
+				Invalid: eps.ix.flg[xi]&epsInval != 0,
+				Point:   eps.pt[xi],
+				ZKey:    hexKey(eps.ix.key[xi]),
+			}
+		}
 	}
 
 	// order the invalidated values
@@ -277,7 +319,13 @@ func (eps *EPS) reindex() {
 	}
 
 	if checkReSort && !sort.IsSorted(eps.ix) {
-		log.Printf("EPS partial re-sort failure, falling back to sort!")
+		if debugReSort {
+			buf, err := json.Marshal(&dbg)
+			if err != nil {
+				panic(err)
+			}
+			log.Printf("EPS partial re-sort failure: %s", buf)
+		}
 		sort.Sort(eps.ix)
 	}
 
