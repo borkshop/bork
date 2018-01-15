@@ -11,11 +11,6 @@ import (
 	"github.com/borkshop/bork/internal/rectangle"
 )
 
-// TODO support movement on top of or within an EPS:
-// - an ecs.Relation on positioned things:
-//   - intent: direction & magnitude? jumping?
-//   - outcome: collision (only if solid)? pre-compute "what's here"?
-
 // EPS is an Entity Positioning System; (technically it's not an ecs.System, it
 // just has a reference to an ecs.Core).
 type EPS struct {
