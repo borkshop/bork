@@ -210,6 +210,8 @@ func (mov *Moves) processPendingMove(uc *ecs.UpsertCursor) {
 			t = t & ^movRelPending | movRelCollide
 		} else if mag <= 0 {
 			return
+		} else { // hit == ecs.NilEntity
+			hit = ent
 		}
 		move = uc.Emit(t, ent, hit)
 	} else {
