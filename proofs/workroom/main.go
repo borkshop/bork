@@ -86,6 +86,10 @@ func main() {
 			if ent.Type().HasAll(wcHP) {
 				fw.Printf("hp:%v", world.hp[ent.ID()].hp)
 			}
+			if ent.Type().HasAll(wcStats) {
+				stats := world.stats[ent.ID()]
+				fw.Printf("ap:%v", stats.ap)
+			}
 			buf.WriteRune('>')
 		}
 		hud.status.SetLeft(buf.String())

@@ -20,6 +20,7 @@ const (
 	wcBG
 	wcFG
 	wcHP
+	wcStats
 	wcFloor
 	wcWall
 	wcPlayerControl
@@ -39,7 +40,8 @@ type worldT struct {
 	bg     []tcell.Color
 	fg     []tcell.Color
 
-	hp []hitpoints
+	hp    []hitpoints
+	stats []charStats
 
 	post   func(func())
 	posted bool
@@ -47,6 +49,10 @@ type worldT struct {
 
 type hitpoints struct {
 	hp, maxHP int
+}
+
+type charStats struct {
+	ap, maxAP int
 }
 
 func (world *worldT) postProc() {
@@ -80,14 +86,19 @@ func (world *worldT) init(post func(func())) {
 	world.bg = []tcell.Color{tcell.ColorDefault}
 	world.fg = []tcell.Color{tcell.ColorDefault}
 	world.hp = []hitpoints{{maxHP: 20}}
+	world.stats = []charStats{{
+		ap:    0,
+		maxAP: 128,
+	}}
 
 	world.RegisterAllocator(wcGlyph|wcBG|wcFG, world.allocCell)
-	world.RegisterAllocator(wcName|wcHP, world.allocStats)
+	world.RegisterAllocator(wcName|wcHP|wcStats, world.allocStats)
 	world.RegisterDestroyer(wcName, world.destroyName)
 	world.RegisterDestroyer(wcGlyph, world.destroyGlyph)
 	world.RegisterDestroyer(wcBG, world.destroyBG)
 	world.RegisterDestroyer(wcFG, world.destroyFG)
 	world.RegisterDestroyer(wcHP, world.destroyHP)
+	world.RegisterDestroyer(wcStats, world.destroyStats)
 
 	world.AddProc(
 		&world.timers,
@@ -281,6 +292,7 @@ func (world *worldT) allocStats(id ecs.EntityID, _ ecs.ComponentType) {
 	for n := int(id) + 1; len(world.names) < n; {
 		world.names = append(world.names, "")
 		world.hp = append(world.hp, world.hp[0])
+		world.stats = append(world.stats, world.stats[0])
 	}
 }
 
@@ -307,6 +319,9 @@ func (world *worldT) destroyFG(id ecs.EntityID, t ecs.ComponentType) {
 	}
 }
 func (world *worldT) destroyHP(id ecs.EntityID, _ ecs.ComponentType) { world.hp[id] = world.hp[0] }
+func (world *worldT) destroyStats(id ecs.EntityID, _ ecs.ComponentType) {
+	world.stats[id] = world.stats[0]
+}
 
 func (world *worldT) addTile(bg tcell.Color, glyph rune, pos image.Point) ecs.Entity {
 	t := wcBG | wcPosition
@@ -372,7 +387,7 @@ func (world *worldT) addRoom(box image.Rectangle) {
 }
 
 func (world *worldT) addChar(name string, glyph rune, color tcell.Color, pos image.Point) ecs.Entity {
-	ent := world.AddEntity(wcName | wcGlyph | wcFG | wcPosition | wcSolid | wcHP)
+	ent := world.AddEntity(wcName | wcGlyph | wcFG | wcPosition | wcSolid | wcHP | wcStats)
 	id := ent.ID()
 	world.names[id] = name
 	world.glyphs[id] = glyph
@@ -381,6 +396,8 @@ func (world *worldT) addChar(name string, glyph rune, color tcell.Color, pos ima
 	world.pos.Set(ent, pos)
 	hp := &world.hp[id]
 	hp.hp = hp.maxHP
+	stats := &world.stats[id]
+	stats.ap = stats.maxAP
 	return ent
 }
 
