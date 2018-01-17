@@ -39,10 +39,14 @@ type worldT struct {
 	bg     []tcell.Color
 	fg     []tcell.Color
 
-	hp []int
+	hp []hitpoints
 
 	post   func(func())
 	posted bool
+}
+
+type hitpoints struct {
+	hp, maxHP int
 }
 
 func (world *worldT) postProc() {
@@ -75,7 +79,7 @@ func (world *worldT) init(post func(func())) {
 	world.zval = []uint8{0}
 	world.bg = []tcell.Color{tcell.ColorDefault}
 	world.fg = []tcell.Color{tcell.ColorDefault}
-	world.hp = []int{0}
+	world.hp = []hitpoints{{maxHP: 20}}
 
 	world.RegisterAllocator(wcGlyph|wcBG|wcFG, world.allocCell)
 	world.RegisterAllocator(wcName|wcHP, world.allocStats)
@@ -99,12 +103,10 @@ func (world *worldT) doDig() {
 		return cur.B().Type().HasAll(wcWall)
 	})); cur.Scan(); {
 		wall := cur.B()
-		hp := world.hp[wall.ID()]
-		hp--
-		if hp > 0 {
-			c := 0x30 + int32(hp)*4
+		hp := &world.hp[wall.ID()]
+		if hp.hp--; hp.hp > 0 {
+			c := 0x30 + int32(hp.hp)*4
 			world.bg[wall.ID()] = tcell.NewRGBColor(c, c, c)
-			world.hp[wall.ID()] = hp
 			continue
 		}
 
@@ -278,7 +280,7 @@ func (world *worldT) allocCell(id ecs.EntityID, _ ecs.ComponentType) {
 func (world *worldT) allocStats(id ecs.EntityID, _ ecs.ComponentType) {
 	for n := int(id) + 1; len(world.names) < n; {
 		world.names = append(world.names, "")
-		world.hp = append(world.hp, 0)
+		world.hp = append(world.hp, world.hp[0])
 	}
 }
 
@@ -339,7 +341,8 @@ func (world *worldT) addFloor(pos image.Point, glyph rune) ecs.Entity {
 func (world *worldT) addWall(pos image.Point, glyph rune) ecs.Entity {
 	wall := world.addBlock(tcell.NewHexColor(0x404040), glyph, pos)
 	wall.Add(wcWall | wcHP)
-	world.hp[wall.ID()] = 4
+	hp := &world.hp[wall.ID()]
+	hp.hp = 4 // TODO = hp.maxHP
 	return wall
 }
 
