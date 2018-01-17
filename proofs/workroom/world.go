@@ -102,12 +102,13 @@ func (world *worldT) init(post func(func())) {
 
 	world.AddProc(
 		&world.timers,
-		&world.moves,
+		&world.moves, // TODO moving should spend AP, becoming more difficult if exhausted
 		ecs.ProcFunc(world.doDig),
 	)
 }
 
 func (world *worldT) doDig() {
+	// TODO digging should spend AP, failing if none
 	dug := false
 	// TODO BType / AType CursorOpts
 	for cur := world.moves.Collisions(ecs.Filter(func(cur ecs.Cursor) bool {
