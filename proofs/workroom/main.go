@@ -83,6 +83,9 @@ func main() {
 			if move := world.moves.GetPendingMove(ent); move != ecs.NilEntity {
 				fw.Printf("mag:%v", world.moves.Mag(move))
 			}
+			if ent.Type().HasAll(wcHP) {
+				fw.Printf("hp:%v", world.hp[ent.ID()].hp)
+			}
 			buf.WriteRune('>')
 		}
 		hud.status.SetLeft(buf.String())

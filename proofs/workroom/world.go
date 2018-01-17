@@ -372,13 +372,15 @@ func (world *worldT) addRoom(box image.Rectangle) {
 }
 
 func (world *worldT) addChar(name string, glyph rune, color tcell.Color, pos image.Point) ecs.Entity {
-	ent := world.AddEntity(wcName | wcGlyph | wcFG | wcPosition | wcSolid)
+	ent := world.AddEntity(wcName | wcGlyph | wcFG | wcPosition | wcSolid | wcHP)
 	id := ent.ID()
 	world.names[id] = name
 	world.glyphs[id] = glyph
 	world.fg[id] = color
 	world.zval[id] = 200
 	world.pos.Set(ent, pos)
+	hp := &world.hp[id]
+	hp.hp = hp.maxHP
 	return ent
 }
 
